@@ -42,7 +42,7 @@ class WordBookWordServiceTest {
         //given
         Long wordId=5l;
         Long wordBookId=8l;
-        String username="admin";
+        String username="admin1";
         wordBookWordService.removeWordBookWord(wordBookId,wordId,username);
     }
 }

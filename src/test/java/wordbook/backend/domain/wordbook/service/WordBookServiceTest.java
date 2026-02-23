@@ -58,7 +58,7 @@ class WordBookServiceTest {
 //        boolean present1 = wordBookWordRepository.findById(10l).isPresent();
 //        System.out.println("present1 = " + present1);
         String username="admin1";
-        Long id=10L;
+        Long id=8L;
         wordBookService.remove(id, username);
     }
 

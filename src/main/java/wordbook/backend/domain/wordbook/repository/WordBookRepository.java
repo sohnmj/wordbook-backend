@@ -8,6 +8,7 @@ import wordbook.backend.domain.wordbook.dto.WordBookListResponseDTO;
 import wordbook.backend.domain.wordbook.entity.WordBookEntity;
 
 import java.util.List;
+import java.util.Optional;
 
 
 @Repository
@@ -25,4 +26,7 @@ where wb.userEntity = :user
 group by wb.id, wb.name
 """)
     List<WordBookListResponseDTO> findWordBooksWithWordCount(UserEntity user);
+
+
+    Optional<WordBookEntity> findByIdAndUserEntity_Id(Long wordBookId,Long userId);
 }

@@ -1,8 +1,9 @@
 package wordbook.backend.domain.wordbookword.service;
 
-import jakarta.transaction.Transactional;
+
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import wordbook.backend.domain.user.entity.UserEntity;
 import wordbook.backend.domain.user.service.UserService;
 import wordbook.backend.domain.word.dto.WordResponseDTO;
@@ -30,6 +31,7 @@ public class WordBookWordService {
     }
 
     //단어장 보여주기
+    @Transactional(readOnly = true)
     public WordBookResponseDTO getWordBook(long id){
         String wordName=wordBookRepository.findById(id).orElseThrow(()->new RuntimeException()).getName();
         List<WordResponseDTO> words = wordBookWordRepository.findWithWord(id).stream()
@@ -46,14 +48,15 @@ public class WordBookWordService {
         return new WordBookResponseDTO(words,wordName);
     }
 
-    //단어장에 단어 추가하기
-    public Long createWordBookWord(Long wordId,Long wordbookId){
-        WordBookEntity wordBookEntity = wordBookRepository.findById(wordbookId).orElseThrow(()-> new RuntimeException("not found"));
-        WordEntity wordEntity = wordRepository.findById(wordId).orElseThrow(()-> new RuntimeException("not found"));
-        if (!wordEntity.getUserEntity().getId()
-                .equals(wordBookEntity.getUserEntity().getId())) {
-            throw new RuntimeException("not found");
-        }
+    //단어장에 단어 추가하기(유저에 소속된 건지 확인)
+    @Transactional
+    public Long createWordBookWord(Long wordId,Long wordbookId,String username){
+        Long userId = userService.findUserByUsername(username).getId();
+        // 유저 소속 단어와 단어장인지 확인
+        WordBookEntity wordBookEntity = wordBookRepository.findByIdAndUserEntity_Id(wordbookId,userId).orElseThrow(()-> new RuntimeException("not found"));
+        WordEntity wordEntity = wordRepository.findByIdAndUserEntity_Id(wordId,userId).orElseThrow(()-> new RuntimeException("not found"));
+
+        //저장
         WordBookWordEntity wordBookWordEntity = WordBookWordEntity.builder()
                 .wordBookEntity(wordBookEntity)
                 .wordEntity(wordEntity)
@@ -62,6 +65,7 @@ public class WordBookWordService {
 
     }
     //시험 볼 수 있는 단어 보여주기
+    @Transactional(readOnly = true)
     public List<WordResponseDTO> getTestWords(long id,int size){
         return wordRepository.findTestWord(id, PageRequest.of(0,size)).stream()
                 .map(word->WordResponseDTO.builder()
@@ -76,7 +80,7 @@ public class WordBookWordService {
 
     }
     //단어장에서 단어 보여주기
-    @Transactional
+    @Transactional(readOnly = true)
     public long removeWordBookWord(long wordBookId,long wordId,String username){
         UserEntity user = userService.findUserByUsername(username);
         WordBookEntity wordBook=wordBookRepository.findById(wordBookId).orElseThrow(()->new RuntimeException());

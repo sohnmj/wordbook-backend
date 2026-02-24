@@ -17,12 +17,11 @@ public class WordBookWordController {
     }
 
     @PostMapping("")
-    public ResponseEntity<Long> createWordBookWord(@RequestBody WordBookWordRequestDTO wordBookWordRequestDTO) {
+    public ResponseEntity<Long> createWordBookWord(@RequestBody WordBookWordRequestDTO wordBookWordRequestDTO,Authentication authentication) {
         Long wordId=wordBookWordRequestDTO.getWord();
         Long wordBookId=wordBookWordRequestDTO.getWordbook();
-        System.out.println("wordBookId = " + wordBookId);
-        System.out.println("wordId = " + wordId);
-        Long wordBookWord = wordBookWordService.createWordBookWord(wordId, wordBookId);
+        String username=authentication.getName();
+        Long wordBookWord = wordBookWordService.createWordBookWord(wordId, wordBookId,username);
         return ResponseEntity.ok(wordBookWord);
     }
     @DeleteMapping("")

@@ -34,7 +34,7 @@ class WordBookWordControllerTest {
         requestDTO.setWord(1L);
         requestDTO.setWordbook(10L);
 
-        given(wordBookWordService.createWordBookWord(1L, 10L))
+        given(wordBookWordService.createWordBookWord(1L, 10L,"admin1"))
                 .willReturn(100L);
 
         // when & then

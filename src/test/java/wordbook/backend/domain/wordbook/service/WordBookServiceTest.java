@@ -47,7 +47,7 @@ class WordBookServiceTest {
     }
     @Transactional
     @Test
-    @Rollback(false)
+
     public void remove() {
 //        //given
 //        String username="admin1";
@@ -58,7 +58,7 @@ class WordBookServiceTest {
 //        boolean present1 = wordBookWordRepository.findById(10l).isPresent();
 //        System.out.println("present1 = " + present1);
         String username="admin1";
-        Long id=8L;
+        Long id=12L;
         wordBookService.remove(id, username);
     }
 

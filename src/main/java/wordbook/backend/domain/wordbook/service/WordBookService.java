@@ -43,13 +43,8 @@ public class WordBookService {
     //단어장 삭제
     @Transactional
     public void remove(Long id, String username) {
-        
-        //이건 추후에 AOP 대체할 예정
-        UserEntity user = userService.findUserByUsername(username);
-        WordBookEntity wordBook=wordBookRepository.findById(id).orElseThrow(()->new RuntimeException());
-        if(!user.getId().equals(wordBook.getUserEntity().getId())) {
-            throw new RuntimeException();
-        }
+        Long userId = userService.findUserByUsername(username).getId();
+        WordBookEntity wordBook=wordBookRepository.findByIdAndUserEntity_Id(id,userId).orElseThrow(()->new RuntimeException());
         wordBookRepository.delete(wordBook);
     }
 

@@ -18,7 +18,7 @@ class WordBookWordServiceTest {
     @Test
     void getWordBookWord() {
         //given
-        Long id = 8L;
+        Long id = 12L;
 
         WordBookResponseDTO wordBook = wordBookWordService.getWordBook(id);
         for(WordResponseDTO wordResponseDTO : wordBook.getWords()) {
@@ -41,7 +41,7 @@ class WordBookWordServiceTest {
     void remove(){
         //given
         Long wordId=5l;
-        Long wordBookId=8l;
+        Long wordBookId=12l;
         String username="admin1";
         wordBookWordService.removeWordBookWord(wordBookId,wordId,username);
     }

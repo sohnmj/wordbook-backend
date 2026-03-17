@@ -19,6 +19,7 @@ public class SearchController {
     }
     @GetMapping("/search")
     public ResponseEntity<WordResponseDTO> search(Authentication authentication, @RequestParam String keyword, @RequestParam String lang) {
+        System.out.println("authentication = " + authentication);
         String username = authentication.getName();
         WordResponseDTO response = apiService.getResponse(keyword, lang);
         WordResponseDTO wordResponseDTO = wordService.createWord( response, username);

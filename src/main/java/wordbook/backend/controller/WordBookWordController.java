@@ -26,7 +26,6 @@ public class WordBookWordController {
     }
     @DeleteMapping("")
     public ResponseEntity<Long> deleteWordBookWord(@RequestParam Long wordBookId, @RequestParam Long wordId, Authentication authentication) {
-        System.out.println("wordBookId = " + wordBookId);
         long id = wordBookWordService.removeWordBookWord(wordBookId, wordId, authentication.getName());
         return ResponseEntity.ok(id);
 

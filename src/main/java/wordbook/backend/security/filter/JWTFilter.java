@@ -28,7 +28,6 @@ public class JWTFilter  extends OncePerRequestFilter {
             throw new ServletException("Invalid JWT token");
         }
         String accessToken = authorization.split(" ")[1];
-
         if(jwtUtil.isValid(accessToken)) {
             String username = jwtUtil.getUsername(accessToken);
             Authentication auth = new UsernamePasswordAuthenticationToken(username, null, null);

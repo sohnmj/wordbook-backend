@@ -8,7 +8,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Builder
+
 public class WordBookWordRequestDTO {
     private Long word;
     private Long wordbook;

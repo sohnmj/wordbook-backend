@@ -23,7 +23,7 @@ class UserServiceTest {
     @Test
     public void createUser() {
         //given
-        UserCreateDTO userCreateDTO = new UserCreateDTO("admin","1234");
+        UserCreateDTO userCreateDTO = new UserCreateDTO("admin","email","1234");
         when(passwordEncoder.encode("1234")).thenReturn("5678");
         when(userRepository.save(any(UserEntity.class)))
                 .thenAnswer(invocation -> {

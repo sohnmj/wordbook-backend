@@ -59,7 +59,8 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain (HttpSecurity http, AuthenticationManager authenticationManager) throws Exception{
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST,  "/user/**").permitAll()
+                        .requestMatchers(HttpMethod.POST,  "/api/v2/user/**").permitAll()
+                        .requestMatchers(HttpMethod.POST,  "/api/v2/mail/**").permitAll()
                         .anyRequest().authenticated()
                 );
         http

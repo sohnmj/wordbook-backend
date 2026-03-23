@@ -32,8 +32,17 @@ public class UserEntity {
 
     @Column(name="password", nullable = false)
     private String password;
+    @Column(name="email",unique = true)
+    private String email;
+    @Column(name="is_social", nullable=false)
+    private boolean IsSocial;
+    @Column(name="api_usage", nullable=false)
+    private int usage;
     @OneToMany(mappedBy = "userEntity", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<WordBookEntity> wordBookWords = new ArrayList<>();
     @OneToMany(mappedBy = "userEntity", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<WordEntity> words = new ArrayList<>();
+    public void updateUsage(int usage) {
+        this.usage =this.usage+ usage;
+    }
 }

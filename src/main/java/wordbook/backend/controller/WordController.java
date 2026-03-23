@@ -12,7 +12,7 @@ import wordbook.backend.domain.word.service.WordService;
 import java.util.List;
 
 @RestController
-@RequestMapping("/word")
+@RequestMapping("api/v2/word")
 public class WordController {
     private final WordService wordService;
 

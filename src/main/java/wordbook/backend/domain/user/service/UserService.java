@@ -22,6 +22,9 @@ public class UserService {
         UserEntity userEntity= UserEntity.builder()
                 .username(userCreateDTO.getUsername())
                 .password(passwordEncoder.encode(userCreateDTO.getPassword()))
+                .email(userCreateDTO.getEmail())
+                .IsSocial(false)
+                .usage(0)
                 .build();
         return userRepository.save(userEntity).getId();
     }
@@ -39,5 +42,21 @@ public class UserService {
         Long userId = user.getId();
         userRepository.delete(user);
         return userId;
+    }
+    //usage업데이트
+    @Transactional
+    public void updateUsage(UserEntity userEntity) {
+        userEntity.updateUsage(10);
+        userRepository.save(userEntity);
+    }
+    //usage 0이상일때 true
+    @Transactional(readOnly = true)
+    public boolean possibleUsage(String username) {
+        UserEntity user = findUserByUsername(username);
+        int usage = user.getUsage();
+        if(usage <= 0){
+            return false;
+        }
+        return true;
     }
 }

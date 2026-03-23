@@ -8,7 +8,7 @@ import wordbook.backend.domain.wordbookword.dto.WordBookWordRequestDTO;
 import wordbook.backend.domain.wordbookword.service.WordBookWordService;
 
 @RestController
-@RequestMapping("/wordbookword")
+@RequestMapping("/api/v2/wordbookword")
 public class WordBookWordController {
     private final WordBookWordService wordBookWordService;
 

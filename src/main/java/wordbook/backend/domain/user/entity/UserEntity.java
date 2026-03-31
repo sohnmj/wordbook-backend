@@ -32,17 +32,34 @@ public class UserEntity {
 
     @Column(name="password", nullable = false)
     private String password;
+
     @Column(name="email",unique = true)
     private String email;
+
     @Column(name="is_social", nullable=false)
-    private boolean IsSocial;
+    private Boolean isSocial;
+
     @Column(name="api_usage", nullable=false)
     private int usage;
+
     @OneToMany(mappedBy = "userEntity", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<WordBookEntity> wordBookWords = new ArrayList<>();
+
     @OneToMany(mappedBy = "userEntity", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<WordEntity> words = new ArrayList<>();
+
+    @Enumerated(EnumType.STRING)
+    @Column(name="role", nullable=false)
+    private UserRoleType role;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name="social")
+    private SocialProviderType social;
+
     public void updateUsage(int usage) {
         this.usage =this.usage+ usage;
+    }
+    public void update(String email){
+        this.email=email;
     }
 }

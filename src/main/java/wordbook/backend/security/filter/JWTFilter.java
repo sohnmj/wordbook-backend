@@ -6,11 +6,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 import wordbook.backend.security.util.JWTUtil;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
 
 public class JWTFilter  extends OncePerRequestFilter {
     private final JWTUtil jwtUtil;
@@ -28,9 +32,11 @@ public class JWTFilter  extends OncePerRequestFilter {
             throw new ServletException("Invalid JWT token");
         }
         String accessToken = authorization.split(" ")[1];
-        if(jwtUtil.isValid(accessToken)) {
+        if(jwtUtil.isValid(accessToken,true)) {
             String username = jwtUtil.getUsername(accessToken);
-            Authentication auth = new UsernamePasswordAuthenticationToken(username, null, null);
+            String role = jwtUtil.getRole(accessToken);
+            List<GrantedAuthority> authorities = Collections.singletonList(new SimpleGrantedAuthority(role));
+            Authentication auth = new UsernamePasswordAuthenticationToken(username, null, authorities);
             SecurityContextHolder.getContext().setAuthentication(auth);
 
             filterChain.doFilter(request,response);

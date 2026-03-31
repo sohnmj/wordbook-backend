@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import wordbook.backend.domain.user.dto.UserCreateDTO;
 import wordbook.backend.domain.user.entity.UserEntity;
+import wordbook.backend.domain.user.entity.UserRoleType;
 import wordbook.backend.domain.user.repository.UserRepository;
 
 @Service
@@ -23,7 +24,8 @@ public class UserService {
                 .username(userCreateDTO.getUsername())
                 .password(passwordEncoder.encode(userCreateDTO.getPassword()))
                 .email(userCreateDTO.getEmail())
-                .IsSocial(false)
+                .isSocial(false)
+                .role(UserRoleType.USER)
                 .usage(0)
                 .build();
         return userRepository.save(userEntity).getId();

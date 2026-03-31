@@ -1,5 +1,6 @@
 package wordbook.backend.security.handler;
 
+import jakarta.persistence.Column;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -9,38 +10,40 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import wordbook.backend.domain.refresh.service.JWTService;
-import wordbook.backend.redis.RedisService;
 import wordbook.backend.security.util.JWTUtil;
 
 import java.io.IOException;
-@Qualifier("LoginSuccessHandler")
 @Component
-public class LoginSuccessHandler implements AuthenticationSuccessHandler {
+@Qualifier("SocialSuccessHandler")
+public class SocialSuccessHandler implements AuthenticationSuccessHandler {
     private final JWTService jwtService;
     private final JWTUtil jwtUtil;
-    public LoginSuccessHandler(JWTUtil jwtUtil,JWTService jwtService) {
-       this.jwtService = jwtService;
-        this.jwtUtil = jwtUtil;
+    public SocialSuccessHandler(JWTService jwtService, JWTUtil jwtUtil) {
+        this.jwtService = jwtService;
+        this.jwtUtil=jwtUtil;
     }
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
         String username = authentication.getName();
         String role = authentication.getAuthorities().iterator().next().getAuthority();
-        String accessToken= jwtUtil.createToken(username,role,true);
-        String refreshToken=jwtUtil.createToken(username,role,false);
 
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
+
+
+        // JWT(Refresh) 발급
+        String refreshToken = jwtUtil.createToken(username, "ROLE_" + role, false);
+
+        // 발급한 Refresh DB 테이블 저장 (Refresh whitelist)
         jwtService.addRefresh(username, refreshToken);
-        String json = String.format("{\"accessToken\":\"%s\"}", accessToken);
-        response.addCookie(createCookie("refresh",refreshToken));
-        response.getWriter().write(json);
-        response.getWriter().flush();
-    }
-    private Cookie createCookie(String key, String value){
-        Cookie cookie=new Cookie(key,value);
-        cookie.setMaxAge(60*60*24);
-        cookie.setHttpOnly(true);
-        return cookie;
+
+        // 응답
+        Cookie refreshCookie = new Cookie("refreshToken", refreshToken);
+        refreshCookie.setHttpOnly(true);
+        refreshCookie.setSecure(false);
+        refreshCookie.setPath("/");
+        refreshCookie.setMaxAge(100);
+
+        response.addCookie(refreshCookie);
+//        response.sendRedirect("http://localhost:5173/cookie");
+
     }
 }

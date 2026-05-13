@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
+import wordbook.backend.domain.word.dto.WordResponseDTO;
+import wordbook.backend.domain.word.service.WordService;
 import wordbook.backend.domain.wordbook.dto.WordBookRequestDTO;
 import wordbook.backend.domain.wordbook.dto.WordBookListResponseDTO;
 import wordbook.backend.domain.wordbook.repository.WordBookRepository;
@@ -21,6 +23,8 @@ class WordBookServiceTest {
     private WordBookRepository wordBookRepository;
     @Autowired
     private WordBookWordRepository wordBookWordRepository;
+    @Autowired
+    private WordService wordService;
 
     @Test
 
@@ -61,6 +65,7 @@ class WordBookServiceTest {
         Long id=12L;
         wordBookService.remove(id, username);
     }
+
 
 
 

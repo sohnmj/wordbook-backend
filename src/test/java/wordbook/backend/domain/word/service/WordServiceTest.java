@@ -39,8 +39,6 @@ class WordServiceTest {
         WordResponseDTO wordResponseDTO=WordResponseDTO.builder()
                 .word("test")
                 .lang("test")
-                .antonym("test")
-                .synonym("test")
                 .meaning("test")
                 .example("test")
                 .build();
@@ -50,5 +48,20 @@ class WordServiceTest {
         //then
         WordResponseDTO word1 = wordService.createWord(wordResponseDTO,username);
         assertThat(word1.getWord()).isEqualTo(wordResponseDTO.getWord());
+    }
+    @Test
+    public void index() {
+        //given
+        String example="I ate an  apple today.";
+        String word="apple";
+        WordResponseDTO wordResponseDTO=new WordResponseDTO();
+        wordResponseDTO.setWord(word);
+        wordResponseDTO.setExample(example);
+        //
+        wordService.getIndexFromExample(wordResponseDTO);
+        System.out.println("wordResponseDTO.getStartIndex() = " + wordResponseDTO.getStartIndex());
+        System.out.println("wordResponseDTO.getLastIndex() = " + wordResponseDTO.getLastIndex());
+        assertThat(wordResponseDTO.getStartIndex()).isEqualTo(10);
+        assertThat(wordResponseDTO.getLastIndex()).isEqualTo(14);
     }
 }

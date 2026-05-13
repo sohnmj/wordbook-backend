@@ -19,7 +19,7 @@ public class MailController {
     public void setMailService(MailService mailService) {
         this.mailService = mailService;
     }
-    @PostMapping("/")
+    @PostMapping("")
     public ResponseEntity<Boolean> sendMail(@RequestBody MailRequestDTO dto){
         log.info("email : {}",dto.getEmail());
         mailService.sendMail(dto.getEmail());

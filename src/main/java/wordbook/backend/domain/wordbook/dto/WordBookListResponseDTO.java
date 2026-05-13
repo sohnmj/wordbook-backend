@@ -13,4 +13,5 @@ public class WordBookListResponseDTO {
     private Long id;
     private String name;
     private Long count;
+    private Long likeCount;
 }

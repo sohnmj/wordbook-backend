@@ -22,6 +22,10 @@ public class RedisService {
     public void setRedis(String key, String value,Long TTL) {
         stringRedisTemplate.opsForValue().set(key,value,TTL, TimeUnit.SECONDS);
     }
+    //redis 읽기
+    public String getRedis(String key){
+        return stringRedisTemplate.opsForValue().get(key);
+    }
 
     //이메일 코드 인증
     public boolean verify(String email,String code){
@@ -63,6 +67,12 @@ public class RedisService {
 
     public boolean isDuplicate(String username){
         if(stringRedisTemplate.opsForValue().get("usage:"+username)==null){
+            return false;
+        }
+        return true;
+    }
+    public boolean isTrue(String key){
+        if(stringRedisTemplate.opsForValue().get(key)==null){
             return false;
         }
         return true;

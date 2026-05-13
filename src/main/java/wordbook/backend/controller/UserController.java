@@ -22,7 +22,9 @@ public class UserController {
         this.apiService = apiService;
         this.redisService = redisService;
     }
-    @PostMapping("/")
+
+    //회원가입
+    @PostMapping("")
     public ResponseEntity<Long> create(@RequestBody UserCreateDTO userCreateDTO) {
         //검증된 이메일인지 검사
         String email=userCreateDTO.getEmail();
@@ -35,12 +37,14 @@ public class UserController {
         Long id=userService.joinUser(userCreateDTO);
         return ResponseEntity.ok(id);
     }
+    //중복체크
     @PostMapping("/exist")
     public ResponseEntity<Boolean>existUser(@RequestBody UserCreateDTO userCreateDTO) {
         String username=userCreateDTO.getUsername();
         Boolean exited = userService.existUser(username);
         return ResponseEntity.ok(exited);
     }
+    //회원탈퇴
     @GetMapping("/remove")
     public ResponseEntity<String>removeUser(Authentication authentication) {
         String username=authentication.getName();

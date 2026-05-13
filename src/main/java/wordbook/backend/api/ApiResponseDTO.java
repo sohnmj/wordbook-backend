@@ -13,6 +13,7 @@ public class ApiResponseDTO {
 
     private String meaning;
     private String example;
-    private String synonym;
-    private String antonym;
+    private String topic;
+    private String word;
+    private String translation;
 }

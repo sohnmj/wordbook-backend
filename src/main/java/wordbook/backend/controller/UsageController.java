@@ -21,7 +21,7 @@ public class UsageController {
     public void setUserService(UsageService usageService) {
         this.usageService = usageService;
     }
-    @PostMapping("/")
+    @PostMapping("")
     public ResponseEntity<Boolean> getUsage(Authentication authentication){
         String username=authentication.getName();
         boolean usage = usageService.getUsage(username);

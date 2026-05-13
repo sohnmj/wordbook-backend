@@ -29,6 +29,16 @@ public class WordBookEntity {
     @Column(name="word_book_name",nullable = false)
     private String name;
 
+    @Column(name="like_count")
+    private Long likeCount;
+
     @OneToMany(mappedBy = "wordBookEntity", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<WordBookWordEntity> wordBookWords = new ArrayList<>();
+
+    public void incrementLikeCount(){
+        likeCount++;
+    }
+    public void decrementLikeCount(){
+        likeCount--;
+    }
 }

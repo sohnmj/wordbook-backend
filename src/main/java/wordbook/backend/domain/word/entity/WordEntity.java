@@ -39,11 +39,17 @@ public class WordEntity {
     @Column(name = "example")
     private String example;
 
-    @Column(name = "synonym")
-    private String synonym;
+    @Column(name = "topic")
+    private String topic;
 
-    @Column(name = "antonym")
-    private String antonym;
+    @Column(name = "translation")
+    private String translation;
+
+    @Column(name="example_start_index")
+    private int exampleStartIndex;
+
+    @Column(name="example_last_index")
+    private int exampleLastIndex;
 
     @OneToMany(mappedBy = "wordEntity", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<WordBookWordEntity> wordBookWords = new ArrayList<>();

@@ -17,7 +17,8 @@ public interface WordBookRepository extends JpaRepository<WordBookEntity,Long> {
 select new wordbook.backend.domain.wordbook.dto.WordBookListResponseDTO(
     wb.id,
     wb.name,
-    count(wbw.id)
+    count(wbw.id),
+    wb.likeCount
 )
 from WordBookEntity wb
 left join WordBookWordEntity wbw

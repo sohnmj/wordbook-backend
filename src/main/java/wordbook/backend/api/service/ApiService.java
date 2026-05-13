@@ -4,7 +4,7 @@ import wordbook.backend.api.ApiResponseDTO;
 import wordbook.backend.domain.word.dto.WordResponseDTO;
 
 public interface ApiService {
-    public WordResponseDTO getResponse(String word, String lang) ;
-    public String createContent(String word,String lang,boolean iskorean);
-    public Boolean isKorean(String keyword);
+    public WordResponseDTO getResponseEX(String word, String lang,String meaning,String topic);
+    public WordResponseDTO getResponseME(String word, String lang,String meaning,String topic);
+    public String createContent(String word, String lang,String meaning,String topic);
 }

@@ -33,11 +33,13 @@ public class WordBookService {
         WordBookEntity wordBook= WordBookEntity.builder()
                 .userEntity(user)
                 .name(wordBookRequestDTO.getName())
+                .likeCount(0L)
                 .build();
         WordBookEntity save = wordBookRepository.save(wordBook);
         return WordBookListResponseDTO.builder()
                 .id(save.getId())
                 .name(wordBookRequestDTO.getName())
+                .likeCount(save.getLikeCount())
                 .build();
     }
     //단어장 삭제
@@ -46,6 +48,10 @@ public class WordBookService {
         Long userId = userService.findUserByUsername(username).getId();
         WordBookEntity wordBook=wordBookRepository.findByIdAndUserEntity_Id(id,userId).orElseThrow(()->new RuntimeException());
         wordBookRepository.delete(wordBook);
+    }
+
+    public WordBookEntity getById(Long id) {
+        return wordBookRepository.findById(id).orElseThrow(()->new RuntimeException());
     }
 
 }

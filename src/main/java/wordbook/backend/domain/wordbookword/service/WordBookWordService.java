@@ -33,7 +33,9 @@ public class WordBookWordService {
     //단어장 보여주기
     @Transactional(readOnly = true)
     public WordBookResponseDTO getWordBook(long id){
-        String wordName=wordBookRepository.findById(id).orElseThrow(()->new RuntimeException()).getName();
+        WordBookEntity wordBookEntity = wordBookRepository.findById(id).orElseThrow(() -> new RuntimeException());
+        String wordName=wordBookEntity.getName();
+        Long likeCount=wordBookEntity.getLikeCount();
         List<WordResponseDTO> words = wordBookWordRepository.findWithWord(id).stream()
                 .map(wbw->WordResponseDTO.builder()
                         .wordId(wbw.getWordEntity().getId())
@@ -41,11 +43,11 @@ public class WordBookWordService {
                         .lang(wbw.getWordEntity().getLang())
                         .meaning(wbw.getWordEntity().getMeaning())
                         .example(wbw.getWordEntity().getExample())
-                        .synonym(wbw.getWordEntity().getSynonym())
-                        .antonym(wbw.getWordEntity().getAntonym())
+                        .topic(wbw.getWordEntity().getTopic())
+                        .translation(wbw.getWordEntity().getTranslation())
                         .build())
                 .toList();
-        return new WordBookResponseDTO(words,wordName);
+        return new WordBookResponseDTO(words,wordName,likeCount);
     }
 
     //단어장에 단어 추가하기(유저에 소속된 건지 확인)
@@ -65,20 +67,20 @@ public class WordBookWordService {
 
     }
     //시험 볼 수 있는 단어 보여주기
-    @Transactional(readOnly = true)
-    public List<WordResponseDTO> getTestWords(long id,int size){
-        return wordRepository.findTestWord(id, PageRequest.of(0,size)).stream()
-                .map(word->WordResponseDTO.builder()
-                        .word(word.getWord())
-                        .lang(word.getLang())
-                        .meaning(word.getMeaning())
-                        .example(word.getExample())
-                        .synonym(word.getSynonym())
-                        .antonym(word.getAntonym())
-                        .build()
-                        ).toList();
-
-    }
+//    @Transactional(readOnly = true)
+//    public List<WordResponseDTO> getTestWords(long id,int size){
+//        return wordRepository.findTestWord(id, PageRequest.of(0,size)).stream()
+//                .map(word->WordResponseDTO.builder()
+//                        .word(word.getWord())
+//                        .lang(word.getLang())
+//                        .meaning(word.getMeaning())
+//                        .example(word.getExample())
+//                        .synonym(word.getSynonym())
+//                        .antonym(word.getAntonym())
+//                        .build()
+//                        ).toList();
+//
+//    }
     //단어장에서 단어 보여주기
     @Transactional
     public long removeWordBookWord(long wordBookId,long wordId,String username){

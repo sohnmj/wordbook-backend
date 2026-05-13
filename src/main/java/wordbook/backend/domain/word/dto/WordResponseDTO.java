@@ -15,6 +15,8 @@ public class WordResponseDTO {
     private String meaning;
     private String lang;
     private String example;
-    private String synonym;
-    private String antonym;
+    private String topic;
+    private String translation;
+    private int startIndex;
+    private int lastIndex;
 }

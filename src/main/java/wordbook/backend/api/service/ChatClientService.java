@@ -12,122 +12,71 @@ import wordbook.backend.domain.word.dto.WordResponseDTO;
 public class ChatClientService implements ApiService {
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
-    private String systemMessage ;
+    private String systemMessage=
+    """
+You are a professional bilingual dictionary editor and language learning assistant.
+Your task is to generate natural example sentences based on:
+- target word
+- meaning
+- topic
+Rules:
+- Respond ONLY in valid JSON.
+- Do NOT include markdown or explanations.
+- The example sentence must sound natural and commonly used by native speakers.
+- Avoid textbook-style expressions.
+  The sentence must clearly reflect the given topic
+- The meaning must match the usage in the sentence.
+- Return only ONE example sentence.
+- Translation must be written in Korean.
+- Keep the sentence concise and practical.
+
+    JSON format:
+    {
+        "word": "",
+        "meaning": "",
+        "topic": "",
+        "example": "",
+        "translation": ""
+    } ;
+""";
+
+    @Override
+    public WordResponseDTO getResponseME(String word, String lang, String meaning, String topic) {
+        return null;
+    }
+
     public ChatClientService(ChatClient.Builder builder, ObjectMapper objectMapper) {
         this.chatClient = builder.build();
         this.objectMapper = objectMapper;
     }
-   @Override
-    public WordResponseDTO getResponse(String word, String lang) {
-        Boolean iskorean = isKorean(word);
-        if(iskorean) {
-            systemMessage="""
-You are a professional bilingual dictionary editor.
+    @Override
+    public WordResponseDTO getResponseEX(String word, String lang,String meaning,String topic) {
 
-Respond ONLY with raw JSON.
-No explanations.
-No markdown.
-
-Rules:
-- The input word is Korean.
-- Translate the base form into the target foreign language.
-- Use ONLY the given JSON format.
-- If there are multiple common meanings, list them in "meaning" using numbers.
-- Meanings must be short and commonly used expressions in the target language.
-- Provide only ONE representative example sentence in the target language.
-- synonym and antonym must be true and appropriate.
-- Do NOT use hypernyms.
-- Do NOT force antonyms.
-- If none exist, return an empty string "".
-- "meaning" must be a dictionary headword, not an infinitive phrase.
-- Verb meanings must be a single bare verb (one word only).
-- "meaning" must never start with "to ".
-- Outputs that violate this are invalid.
-
-JSON format:
-{
-  "meaning": "",
-  "example": "",
-  "synonym": "",
-  "antonym": ""
-}
-""";
-        }
-        else{
-            systemMessage="""
-You are a professional dictionary editor.
-
-Respond ONLY with raw JSON.
-No explanations.
-No markdown.
-
-Rules:
-- Use ONLY the given JSON format.
-- If there are multiple common meanings, list them in "meaning" using numbers.
-- Meanings must be short Korean expressions.
-- Provide only ONE representative example sentence.
-- synonym and antonym must be true and appropriate.
-- Do NOT use hypernyms.
-- Do NOT force antonyms.
-- If none exist, return an empty string "".
-
-JSON format:
-{
-  "meaning": "",
-  "example": "",
-  "synonym": "",
-  "antonym": ""
-}
-""";
-        }
-        String content=createContent(word,lang,iskorean);
+        String content=createContent(word,lang,meaning,topic);
         String response = callApi(content);
         ApiResponseDTO apiResponseDTO = objectMapper.readValue(response, ApiResponseDTO.class);
-        if(isKorean(word)) {
-            return WordResponseDTO.builder()
-                    .word(getWordFromMeaning(apiResponseDTO.getMeaning()))
-                    .example(apiResponseDTO.getExample())
-                    .synonym(apiResponseDTO.getSynonym())
-                    .antonym(apiResponseDTO.getAntonym())
-                    .meaning(word)
-                    .lang(lang)
-                    .build();
-        }
         return WordResponseDTO.builder()
-                .word(word)
-                .lang(lang)
-                .meaning(apiResponseDTO.getMeaning())
+                .word(apiResponseDTO.getMeaning())
                 .example(apiResponseDTO.getExample())
-                .synonym(apiResponseDTO.getSynonym())
-                .antonym(apiResponseDTO.getAntonym())
+                .meaning(apiResponseDTO.getWord())
+                .translation(apiResponseDTO.getTranslation())
+                .lang(lang)
                 .build();
-
     }
 
     @Override
-    public String createContent(String word, String lang,boolean iskorean) {
-        if(iskorean) {
-            return """
-The input word is "%s" (Korean).
-The target language is %s.
-If the input is an inflected or conjugated form, normalize it to its dictionary base form.
-  (e.g. 만들었다 → 만들다, 먹었어 → 먹다)
-""".formatted(word, lang);
-        }
+    public String createContent(String word, String lang,String meaning,String topic) {
         return """
-    - The target word is "%s".
-    - The language of the word is %s.
-    - meaning must be written in Korean.
-    - example, synonym, antonym must be written in %s.
-    """.formatted(word, lang, lang);
+The input word is "%s".
+The meaning of the word is "%s".
+The topic or situation is "%s".
+The target language is %s.
+Generate one natural and commonly used example sentence
+that matches the given meaning and topic/situation
+""".formatted(word, meaning,topic,lang);
     }
-    @Override
-    public Boolean isKorean(String keyword){
-        if (keyword == null || keyword.isEmpty()) {
-            return false;
-        }
-        return keyword.matches("^[가-힣]+$");
-    }
+
+
     public String callApi(String content){
         String text= chatClient.prompt()
                 .system(systemMessage)
@@ -135,11 +84,6 @@ If the input is an inflected or conjugated form, normalize it to its dictionary 
                 .call()
                 .content();
         return text;
-    }
-    public String getWordFromMeaning(String meaning){
-        return  meaning
-                .replaceAll("^\\s*1\\.\\s*", "") // "1. " 제거
-                .split("\\s+2\\.")[0];
     }
 
 }

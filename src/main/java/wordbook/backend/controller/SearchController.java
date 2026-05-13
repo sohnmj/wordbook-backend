@@ -24,14 +24,14 @@ public class SearchController {
         this.userService = userService;
     }
     @GetMapping("/search")
-    public ResponseEntity<WordResponseDTO> search(Authentication authentication, @RequestParam String keyword, @RequestParam String lang) {
+    public ResponseEntity<WordResponseDTO> search(Authentication authentication, @RequestParam String keyword, @RequestParam String lang,@RequestParam String topic,@RequestParam String meaning) {
         String username = authentication.getName();
         log.info("username:{}",username);
         //usage 없으면 에러 던지기
         if(!userService.possibleUsage(username)){
             throw new RuntimeException();
         }
-        WordResponseDTO response = apiService.getResponse(keyword, lang);
+        WordResponseDTO response = apiService.getResponseEX(keyword, lang,meaning,topic);
         WordResponseDTO wordResponseDTO = wordService.createWord( response, username);
         return ResponseEntity.ok(wordResponseDTO);
     }

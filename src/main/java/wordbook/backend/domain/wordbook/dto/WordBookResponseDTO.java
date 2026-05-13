@@ -13,4 +13,5 @@ import java.util.List;
 public class WordBookResponseDTO {
     List<WordResponseDTO> words;
     String name;
+    Long likeCount;
 }

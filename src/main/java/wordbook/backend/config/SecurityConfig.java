@@ -1,5 +1,6 @@
 package wordbook.backend.config;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -18,6 +19,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import wordbook.backend.security.filter.JWTFilter;
 import wordbook.backend.security.filter.LoginFilter;
+import wordbook.backend.security.handler.SocialSuccessHandler;
 import wordbook.backend.security.util.JWTUtil;
 
 import java.util.List;
@@ -28,8 +30,11 @@ import java.util.List;
 public class SecurityConfig {
     private final AuthenticationSuccessHandler loginSuccessHandler;
     private final JWTUtil jwtUtil;
-    public SecurityConfig(AuthenticationSuccessHandler loginSuccessHandler,JWTUtil jwtUtil) {
+    private final SocialSuccessHandler socialSuccessHandler;
+    public SecurityConfig(@Qualifier("LoginSuccessHandler") AuthenticationSuccessHandler loginSuccessHandler,
+                          @Qualifier("SocialSuccessHandler") SocialSuccessHandler socialSuccessHandler,JWTUtil jwtUtil) {
         this.loginSuccessHandler = loginSuccessHandler;
+        this.socialSuccessHandler = socialSuccessHandler;
         this.jwtUtil = jwtUtil;
     }
     @Bean
@@ -61,6 +66,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST,  "/api/v2/user/**").permitAll()
                         .requestMatchers(HttpMethod.POST,  "/api/v2/mail/**").permitAll()
+                        .requestMatchers(HttpMethod.POST,  "/api/v2/jwt/**").permitAll()
                         .anyRequest().authenticated()
                 );
         http
@@ -71,6 +77,10 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable);
         http
                 .httpBasic(AbstractHttpConfigurer::disable);
+        http
+                .oauth2Login(oauth2 -> oauth2
+                        .successHandler(socialSuccessHandler));
+
         http
                 .addFilterAt(new LoginFilter(authenticationManager,loginSuccessHandler), UsernamePasswordAuthenticationFilter.class);
 

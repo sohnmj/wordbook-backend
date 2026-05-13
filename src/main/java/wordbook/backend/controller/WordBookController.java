@@ -28,7 +28,7 @@ public class WordBookController {
         return ResponseEntity.ok(save);
     }
     @GetMapping("/list")
-    public ResponseEntity<List<WordBookListResponseDTO>> list(Authentication authentication) {
+    public ResponseEntity<List<WordBookListResponseDTO>> getOwnWordbookList(Authentication authentication) {
         String username = authentication.getName();
         List<WordBookListResponseDTO> myAll = wordBookService.findMyAll(username);
         return ResponseEntity.ok(myAll);
@@ -39,10 +39,10 @@ public class WordBookController {
         WordBookResponseDTO wordBook = wordBookWordService.getWordBook(id);
         return ResponseEntity.ok(wordBook);
     }
-    @GetMapping("/test")
-    public ResponseEntity<List<WordResponseDTO>> createTest(@RequestParam long id,@RequestParam int size) {
-        return ResponseEntity.ok(wordBookWordService.getTestWords(id,size));
-    }
+//    @GetMapping("/test")
+//    public ResponseEntity<List<WordResponseDTO>> createTest(@RequestParam long id,@RequestParam int size) {
+//        return ResponseEntity.ok(wordBookWordService.getTestWords(id,size));
+//    }
     @DeleteMapping("")
     public ResponseEntity<Long> delete(@RequestParam long id,Authentication authentication) {
         String username=authentication.getName();

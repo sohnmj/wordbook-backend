@@ -10,6 +10,8 @@ import wordbook.backend.domain.user.service.UserService;
 import wordbook.backend.domain.word.dto.WordResponseDTO;
 
 import wordbook.backend.domain.word.service.WordService;
+import wordbook.backend.usage.UsageService;
+
 @Slf4j
 @RestController
 @RequestMapping("/api/v2/openai")
@@ -17,11 +19,13 @@ public class SearchController {
     private final ApiService apiService;
     private final WordService wordService;
     private final UserService userService;
+    private final UsageService usageService;
 
-    public SearchController(ApiService apiService, WordService wordService, UserService userService) {
+    public SearchController(ApiService apiService, WordService wordService, UserService userService, UsageService usageService) {
         this.apiService = apiService;
         this.wordService = wordService;
         this.userService = userService;
+        this.usageService = usageService;
     }
     @GetMapping("/search")
     public ResponseEntity<WordResponseDTO> search(Authentication authentication, @RequestParam String keyword, @RequestParam String lang,@RequestParam String topic,@RequestParam String meaning) {
@@ -33,6 +37,7 @@ public class SearchController {
         }
         WordResponseDTO response = apiService.getResponseEX(keyword, lang,meaning,topic);
         WordResponseDTO wordResponseDTO = wordService.createWord( response, username);
+        usageService.decreaseUsage(username);
         return ResponseEntity.ok(wordResponseDTO);
     }
 }

@@ -31,4 +31,15 @@ public class UsageService {
             return false;
         }
     }
+    @Transactional(readOnly = true)
+    public int HowManyUsage(String username) {
+        UserEntity user = userService.findUserByUsername(username);
+        return user.getUsage();
+    }
+
+    @Transactional
+    public void decreaseUsage(String username){
+        UserEntity user = userService.findUserByUsername(username);
+        userService.decreaseUsage(user);
+    }
 }

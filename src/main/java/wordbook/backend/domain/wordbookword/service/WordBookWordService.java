@@ -67,20 +67,22 @@ public class WordBookWordService {
 
     }
     //시험 볼 수 있는 단어 보여주기
-//    @Transactional(readOnly = true)
-//    public List<WordResponseDTO> getTestWords(long id,int size){
-//        return wordRepository.findTestWord(id, PageRequest.of(0,size)).stream()
-//                .map(word->WordResponseDTO.builder()
-//                        .word(word.getWord())
-//                        .lang(word.getLang())
-//                        .meaning(word.getMeaning())
-//                        .example(word.getExample())
-//                        .synonym(word.getSynonym())
-//                        .antonym(word.getAntonym())
-//                        .build()
-//                        ).toList();
-//
-//    }
+    @Transactional(readOnly = true)
+    public List<WordResponseDTO> getTestWords(long wordbookId,int size){
+        return wordRepository.findTestWord(wordbookId, PageRequest.of(0,size)).stream()
+                .map(word->WordResponseDTO.builder()
+                        .word(word.getWord())
+                        .lang(word.getLang())
+                        .meaning(word.getMeaning())
+                        .example(word.getExample())
+                                .translation(word.getTranslation())
+                                .useword(word.getUseword())
+                                .startIndex(word.getExampleStartIndex())
+                                .lastIndex(word.getExampleLastIndex())
+                        .build()
+                        ).toList();
+
+    }
     //단어장에서 단어 보여주기
     @Transactional
     public long removeWordBookWord(long wordBookId,long wordId,String username){

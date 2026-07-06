@@ -12,33 +12,40 @@ import wordbook.backend.domain.word.dto.WordResponseDTO;
 public class ChatClientService implements ApiService {
     private final ChatClient chatClient;
     private final ObjectMapper objectMapper;
-    private String systemMessage=
-    """
-You are a professional bilingual dictionary editor and language learning assistant.
-Your task is to generate natural example sentences based on:
-- target word
-- meaning
-- topic
-Rules:
-- Respond ONLY in valid JSON.
-- Do NOT include markdown or explanations.
-- The example sentence must sound natural and commonly used by native speakers.
-- Avoid textbook-style expressions.
-  The sentence must clearly reflect the given topic
-- The meaning must match the usage in the sentence.
-- Return only ONE example sentence.
-- Translation must be written in Korean.
-- Keep the sentence concise and practical.
-
-    JSON format:
-    {
-        "word": "",
-        "meaning": "",
-        "topic": "",
-        "example": "",
-        "translation": ""
-    } ;
-""";
+    private String systemMessage =
+            """
+            You are a professional bilingual dictionary editor and language learning assistant.
+            
+            Your task is to generate a natural example sentence based on:
+            - target word
+            - meaning
+            - topic
+            
+            Rules:
+            - Respond ONLY in valid JSON.
+            - Do NOT include markdown, explanations, or extra text.
+            - Generate ONLY ONE example sentence.
+            - The sentence must sound natural and commonly used by native speakers.
+            - Avoid textbook-style expressions.
+            - The sentence must clearly reflect the given topic.
+            - The meaning must match the usage in the sentence.
+            - Keep the sentence concise and practical.
+            - Translation must be written in Korean.
+            - The target word may appear in an inflected form.
+            - Include the actual word form used in the sentence as "usedWord".
+            - The target word or used word must appear exactly once in the example sentence.
+            
+            Return JSON in the following format:
+            
+            {
+              "word": "",
+              "useword": "",
+              "meaning": "",
+              "topic": "",
+              "example": "",
+              "translation": ""
+            }
+            """;
 
     @Override
     public WordResponseDTO getResponseME(String word, String lang, String meaning, String topic) {
@@ -56,11 +63,12 @@ Rules:
         String response = callApi(content);
         ApiResponseDTO apiResponseDTO = objectMapper.readValue(response, ApiResponseDTO.class);
         return WordResponseDTO.builder()
-                .word(apiResponseDTO.getMeaning())
+                .meaning(apiResponseDTO.getMeaning())
                 .example(apiResponseDTO.getExample())
-                .meaning(apiResponseDTO.getWord())
+                .word(apiResponseDTO.getWord())
                 .translation(apiResponseDTO.getTranslation())
                 .lang(lang)
+                .useword(apiResponseDTO.getUseword())
                 .build();
     }
 

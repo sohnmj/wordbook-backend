@@ -16,4 +16,5 @@ public class ApiResponseDTO {
     private String topic;
     private String word;
     private String translation;
+    private String useword;
 }

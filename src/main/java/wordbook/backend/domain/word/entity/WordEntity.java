@@ -45,6 +45,9 @@ public class WordEntity {
     @Column(name = "translation")
     private String translation;
 
+    @Column(name = "useword")
+    private String useword;
+
     @Column(name="example_start_index")
     private int exampleStartIndex;
 

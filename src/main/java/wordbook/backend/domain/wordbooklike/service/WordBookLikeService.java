@@ -2,8 +2,6 @@ package wordbook.backend.domain.wordbooklike.service;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import wordbook.backend.domain.user.entity.UserEntity;
 import wordbook.backend.domain.user.service.UserService;

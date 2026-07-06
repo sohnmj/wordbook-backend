@@ -51,6 +51,11 @@ public class UserService {
         userEntity.updateUsage(10);
         userRepository.save(userEntity);
     }
+    @Transactional
+    public void decreaseUsage(UserEntity userEntity) {
+        userEntity.updateUsage(-1);
+        userRepository.save(userEntity);
+    }
     //usage 0이상일때 true
     @Transactional(readOnly = true)
     public boolean possibleUsage(String username) {

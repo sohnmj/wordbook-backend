@@ -33,6 +33,7 @@ public class WordService {
                 .translation(wordResponseDTO.getTranslation())
                 .exampleLastIndex(wordResponseDTO.getLastIndex())
                 .exampleStartIndex(wordResponseDTO.getStartIndex())
+                .useword(wordResponseDTO.getUseword())
                 .build();
         WordEntity save = wordRepository.save(wordEntity);
         return WordResponseDTO.builder()
@@ -45,6 +46,7 @@ public class WordService {
                 .translation(save.getTranslation())
                 .lastIndex(save.getExampleLastIndex())
                 .startIndex(save.getExampleStartIndex())
+                .useword(save.getUseword())
                 .build();
     }
 
@@ -65,7 +67,7 @@ public class WordService {
     //예문에서 단어 위치 찾기
     public void getIndexFromExample(WordResponseDTO wordResponseDTO) {
         String example = wordResponseDTO.getExample();
-        String word=wordResponseDTO.getWord();
+        String word=wordResponseDTO.getUseword();
         int startIndex = example.indexOf(word);
         int lastIndex = startIndex + word.length()-1;
         wordResponseDTO.setStartIndex(startIndex);

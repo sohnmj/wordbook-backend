@@ -1,0 +1,14 @@
+spring:
+  config:
+    activate:
+      on-profile: test
+  datasource:
+    # 메모리에 실시간으로 생성되는 가짜 DB 경로
+    url: jdbc:h2:mem:test_wordbook;MODE=MySQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true

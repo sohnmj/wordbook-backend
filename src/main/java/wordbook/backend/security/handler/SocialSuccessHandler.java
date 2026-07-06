@@ -27,8 +27,6 @@ public class SocialSuccessHandler implements AuthenticationSuccessHandler {
         String username = authentication.getName();
         String role = authentication.getAuthorities().iterator().next().getAuthority();
 
-
-
         // JWT(Refresh) 발급
         String refreshToken = jwtUtil.createToken(username, "ROLE_" + role, false);
 
@@ -36,14 +34,14 @@ public class SocialSuccessHandler implements AuthenticationSuccessHandler {
         jwtService.addRefresh(username, refreshToken);
 
         // 응답
-        Cookie refreshCookie = new Cookie("refreshToken", refreshToken);
+        Cookie refreshCookie = new Cookie("refresh", refreshToken);
         refreshCookie.setHttpOnly(true);
         refreshCookie.setSecure(false);
         refreshCookie.setPath("/");
         refreshCookie.setMaxAge(100);
 
         response.addCookie(refreshCookie);
-//        response.sendRedirect("http://localhost:5173/cookie");
-
+        String targetUrl = "http://localhost:5173/oauth/callback";
+        response.sendRedirect(targetUrl);
     }
 }

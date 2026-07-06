@@ -69,7 +69,7 @@ public class JWTService {
 
         addRefresh(username,newRefreshToken);
 
-        Cookie refreshCookie = new Cookie("refreshToken", newRefreshToken);
+        Cookie refreshCookie = new Cookie("refresh", newRefreshToken);
         refreshCookie.setHttpOnly(true);
         refreshCookie.setSecure(false);
         refreshCookie.setPath("/");

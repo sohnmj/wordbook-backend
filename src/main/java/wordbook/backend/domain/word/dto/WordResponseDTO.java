@@ -17,6 +17,7 @@ public class WordResponseDTO {
     private String example;
     private String topic;
     private String translation;
+    private String useword;
     private int startIndex;
     private int lastIndex;
 }

@@ -17,7 +17,7 @@ public class JWTController {
     public JWTController(JWTService jwtService) {
         this.jwtService = jwtService;
     }
-    @PostMapping(value="/exchange", consumes= MediaType.APPLICATION_JSON_VALUE)
+    @PostMapping(value="/exchange")
     public JWTResponseDTO jwtExchangeApi(HttpServletRequest request, HttpServletResponse response){
         log.info("request : {}",request);
         return jwtService.refreshRotate(request,response);

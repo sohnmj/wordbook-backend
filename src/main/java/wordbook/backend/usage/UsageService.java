@@ -18,12 +18,8 @@ public class UsageService {
     @Transactional
     public boolean getUsage(String username) {
         UserEntity user = userService.findUserByUsername(username);
-        if(redisService.isDuplicate(username)){
-            return false;
-        }
-        Long count=redisService.decreaseCupon();
-        if(count>=0){
-            redisService.setRedis(USAGE+username,"true",86400l);
+        long usage = redisService.getUsage(USAGE + username);
+        if(usage==1){
             userService.updateUsage(user);
             return true;
         }

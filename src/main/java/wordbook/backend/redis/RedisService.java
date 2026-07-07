@@ -1,8 +1,10 @@
 package wordbook.backend.redis;
 
+import jakarta.transaction.Transactional;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
-
+import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -10,13 +12,24 @@ public class RedisService {
 
     private final String VERIFY="verify";
     private final String API_USAGE="API:usage";
-    private final String USERNAME="username";
-    private final String PASSWORD="password";
     private final StringRedisTemplate stringRedisTemplate;
+    private final DefaultRedisScript<Long> GET_API_SCRIPT;
 
     public RedisService(StringRedisTemplate stringRedisTemplate) {
         this.stringRedisTemplate = stringRedisTemplate;
-
+        this.GET_API_SCRIPT= new DefaultRedisScript<>();
+        this.GET_API_SCRIPT.setScriptText(
+                "if redis.call('EXISTS', KEYS[2]) == 0 then redis.call('SET', KEYS[2], ARGV[2]) end " +
+                        "if redis.call('EXISTS', KEYS[1]) == 1 then return -1 end " +
+                        "local current_count = redis.call('DECR', KEYS[2]) " +
+                        "if current_count >= 0 then " +
+                        "redis.call('SET', KEYS[1], 'true', 'EX', ARGV[1]) " +
+                        "return 1 " +
+                        "else " +
+                        "return -1 " +
+                        "end"
+        );
+        this.GET_API_SCRIPT.setResultType(Long.class);
     }
     //redis 저장
     public void setRedis(String key, String value,Long TTL) {
@@ -57,6 +70,7 @@ public class RedisService {
         }
         return equals;
     }
+    /*
     //usage 소진
     public Long decreaseCupon(){
         if(stringRedisTemplate.opsForValue().get(API_USAGE)==null){
@@ -71,10 +85,29 @@ public class RedisService {
         }
         return true;
     }
+
+     */
     public boolean isTrue(String key){
         if(stringRedisTemplate.opsForValue().get(key)==null){
             return false;
         }
         return true;
+    }
+    
+    
+    //rua script 실행
+    @Transactional
+    public long getUsage(String usageKey) {
+
+
+        // 2. 루아 스크립트 실행 (원자적 연산)
+        Long result = stringRedisTemplate.execute(
+                GET_API_SCRIPT,
+                Arrays.asList(usageKey, API_USAGE),
+                "86400",
+                "100"
+        );
+
+        return result;
     }
 }

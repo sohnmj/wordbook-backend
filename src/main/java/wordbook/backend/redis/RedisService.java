@@ -10,8 +10,8 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class RedisService {
 
-    private final String VERIFY="verify";
-    private final String API_USAGE="API:usage";
+    private final String VERIFIED_EMAIL="email:verified_status:";
+    private final String API_USAGE="wordbook:ai_api:limit";
     private final StringRedisTemplate stringRedisTemplate;
     private final DefaultRedisScript<Long> GET_API_SCRIPT;
 
@@ -41,9 +41,9 @@ public class RedisService {
     }
 
     //이메일 코드 인증
-    public boolean verify(String email,String code){
+    public boolean verify(String emailKey,String code){
         //email에 해당하는 인증코드 가져오기
-        String savedCode = stringRedisTemplate.opsForValue().get(email);
+        String savedCode = stringRedisTemplate.opsForValue().get(emailKey);
 
         //redis에 해당 이메일이 없으면 false
         if(savedCode == null){
@@ -53,7 +53,7 @@ public class RedisService {
         //해당 이메일 인증코드와 code가 같다면 true
         if(savedCode.equals(code)){
             //인증된 이메일 정보는 300초까지 인증이 적용되고 그전에 회원가입을 끝내야함
-            setRedis(email,VERIFY,300L);
+            setRedis(emailKey,VERIFIED_EMAIL,300L);
             return true;
         }
         //인증코드와 code가 다르다면 false

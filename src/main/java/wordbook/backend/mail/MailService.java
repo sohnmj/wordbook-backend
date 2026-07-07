@@ -13,7 +13,7 @@ import wordbook.backend.redis.RedisService;
 @Service
 public class MailService {
 
-    private static final String EMAIL_PREFIX = "email:";
+    private static final String VERIFY_EMAIL_PREFIX = "wordbook:email:verify:";
     private static final Long TTl=300l;
 
     //의존관계
@@ -41,7 +41,7 @@ public class MailService {
             log.info("이메일 전송");
             mailSender.send(message);
             //이메일 전송시 유효시간 동안 redis에 해당 이메일 계정 저장
-            redisService.setRedis(EMAIL_PREFIX+to,code,TTl);
+            redisService.setRedis(VERIFY_EMAIL_PREFIX+to,code,TTl);
             log.info("이메일 전송 성공");
         }catch(MailException e){
             log.error("이메일 전송 실패");
@@ -49,7 +49,7 @@ public class MailService {
         }
     }
     public boolean verifyMail(String to,String code){
-        return redisService.verify(EMAIL_PREFIX+to,code);
+        return redisService.verify(VERIFY_EMAIL_PREFIX+to,code);
     }
 
 }

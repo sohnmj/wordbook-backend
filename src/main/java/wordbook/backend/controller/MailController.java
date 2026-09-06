@@ -1,5 +1,6 @@
 package wordbook.backend.controller;
 
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -19,14 +20,16 @@ public class MailController {
     public void setMailService(MailService mailService) {
         this.mailService = mailService;
     }
+
+    //
     @PostMapping("")
-    public ResponseEntity<Boolean> sendMail(@RequestBody MailRequestDTO dto){
+    public ResponseEntity<Boolean> sendMail(@RequestBody @Valid MailRequestDTO dto){
         log.info("email : {}",dto.getEmail());
         mailService.sendMail(dto.getEmail());
         return ResponseEntity.ok(true);
     }
     @PostMapping("/verify")
-    public ResponseEntity<Boolean> verifyMail(@RequestBody MailVerifyRequestDTO dto){
+    public ResponseEntity<Boolean> verifyMail(@RequestBody @Valid MailVerifyRequestDTO dto){
         log.info("email : {}",dto.getEmail());
         boolean verified = mailService.verifyMail(dto.getEmail(), dto.getCode());
         return ResponseEntity.ok(verified);

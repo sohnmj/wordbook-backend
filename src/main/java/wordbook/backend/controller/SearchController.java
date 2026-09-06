@@ -1,8 +1,10 @@
 package wordbook.backend.controller;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import wordbook.backend.api.ApiResponseDTO;
 import wordbook.backend.api.service.ApiService;
@@ -14,6 +16,7 @@ import wordbook.backend.usage.UsageService;
 
 @Slf4j
 @RestController
+@Validated
 @RequestMapping("/api/v2/openai")
 public class SearchController {
     private final ApiService apiService;
@@ -27,13 +30,20 @@ public class SearchController {
         this.userService = userService;
         this.usageService = usageService;
     }
+    //예문 검색
     @GetMapping("/search")
-    public ResponseEntity<WordResponseDTO> search(Authentication authentication, @RequestParam String keyword, @RequestParam String lang,@RequestParam String topic,@RequestParam String meaning) {
-        String username = authentication.getName();
+    public ResponseEntity<WordResponseDTO> search(
+            Authentication authentication,
+            @NotBlank(message = "no keyword") @RequestParam String keyword,
+            @NotBlank(message = "no lang") @RequestParam String lang,
+            @RequestParam(required = false) String topic,
+            @RequestParam(required = false) String meaning
+    )
+    {    String username = authentication.getName();
         log.info("username:{}",username);
         //usage 없으면 에러 던지기
         if(!userService.possibleUsage(username)){
-            throw new RuntimeException();
+            throw new IllegalStateException("일일 이용 횟수를 모두 소진하였습니다.");
         }
         WordResponseDTO response = apiService.getResponseEX(keyword, lang,meaning,topic);
         WordResponseDTO wordResponseDTO = wordService.createWord( response, username);

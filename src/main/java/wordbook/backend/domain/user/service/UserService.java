@@ -1,6 +1,7 @@
 package wordbook.backend.domain.user.service;
 
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -11,6 +12,7 @@ import wordbook.backend.domain.user.entity.UserRoleType;
 import wordbook.backend.domain.user.repository.UserRepository;
 
 @Service
+@Slf4j
 public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -30,7 +32,7 @@ public class UserService {
                 .build();
         return userRepository.save(userEntity).getId();
     }
-    @Transactional
+    @Transactional(readOnly = true)
     public UserEntity findUserByUsername(String username) {
         return userRepository.findByUsername(username).orElseThrow(()->new UsernameNotFoundException("user not found"));
     }

@@ -63,7 +63,7 @@ public class SecurityConfig {
         return source;
     }
     @Bean
-    public SecurityFilterChain filterChain (HttpSecurity http, AuthenticationManager authenticationManager) throws Exception{
+    public SecurityFilterChain filterChain (HttpSecurity http, AuthenticationManager authenticationManager) {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST,  "/api/v2/user/**").permitAll()

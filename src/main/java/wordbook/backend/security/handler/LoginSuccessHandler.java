@@ -9,7 +9,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import wordbook.backend.domain.refresh.service.JWTService;
-import wordbook.backend.redis.RedisService;
 import wordbook.backend.security.util.JWTUtil;
 
 import java.io.IOException;
@@ -41,6 +40,8 @@ public class LoginSuccessHandler implements AuthenticationSuccessHandler {
         Cookie cookie=new Cookie(key,value);
         cookie.setMaxAge(60*60*24);
         cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        cookie.setSecure(true);
         return cookie;
     }
 }

@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class RedisService {
 
-    private final String VERIFIED_EMAIL="email:verified_status:";
+    private final String VERIFIED_EMAIL="verify";
     private final String API_USAGE="wordbook:ai_api:limit";
     private final StringRedisTemplate stringRedisTemplate;
     private final DefaultRedisScript<Long> GET_API_SCRIPT;
@@ -70,23 +70,7 @@ public class RedisService {
         }
         return equals;
     }
-    /*
-    //usage 소진
-    public Long decreaseCupon(){
-        if(stringRedisTemplate.opsForValue().get(API_USAGE)==null){
-            stringRedisTemplate.opsForValue().set(API_USAGE,"100");
-        }
-        return stringRedisTemplate.opsForValue().decrement(API_USAGE);
-    }
 
-    public boolean isDuplicate(String username){
-        if(stringRedisTemplate.opsForValue().get("usage:"+username)==null){
-            return false;
-        }
-        return true;
-    }
-
-     */
     public boolean isTrue(String key){
         if(stringRedisTemplate.opsForValue().get(key)==null){
             return false;

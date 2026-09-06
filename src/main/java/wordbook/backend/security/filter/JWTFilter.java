@@ -31,7 +31,7 @@ public class JWTFilter  extends OncePerRequestFilter {
         if (!authorization.startsWith("Bearer ")) {
             throw new ServletException("Invalid JWT token");
         }
-        String accessToken = authorization.split(" ")[1];
+        String accessToken = authorization.substring(7);
         if(jwtUtil.isValid(accessToken,true)) {
             String username = jwtUtil.getUsername(accessToken);
             String role = jwtUtil.getRole(accessToken);
@@ -45,7 +45,7 @@ public class JWTFilter  extends OncePerRequestFilter {
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json;charset=UTF-8");
             response.getWriter().write("{\"error\":\"토큰 만료 또는 유효하지 않은 토큰\"}");
-
+            return;
         }
 
     }

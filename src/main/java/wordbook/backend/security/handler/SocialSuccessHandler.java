@@ -5,7 +5,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -18,6 +20,9 @@ import java.io.IOException;
 public class SocialSuccessHandler implements AuthenticationSuccessHandler {
     private final JWTService jwtService;
     private final JWTUtil jwtUtil;
+
+    @Value("${app.oauth2.redirect-client-url}")
+    private String targetUrl;
     public SocialSuccessHandler(JWTService jwtService, JWTUtil jwtUtil) {
         this.jwtService = jwtService;
         this.jwtUtil=jwtUtil;
@@ -41,7 +46,7 @@ public class SocialSuccessHandler implements AuthenticationSuccessHandler {
         refreshCookie.setMaxAge(100);
 
         response.addCookie(refreshCookie);
-        String targetUrl = "http://localhost:5173/oauth/callback";
+
         response.sendRedirect(targetUrl);
     }
 }

@@ -1,5 +1,6 @@
 package wordbook.backend.controller;
 
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -17,6 +18,7 @@ public class UserController {
     private UserService userService;
     private final ApiService apiService;
     private final RedisService redisService;
+    private static final String VERIFY_EMAIL_PREFIX = "wordbook:email:verify:";
     public UserController(UserService userService, ApiService apiService, RedisService redisService) {
         this.userService = userService;
         this.apiService = apiService;
@@ -25,21 +27,21 @@ public class UserController {
 
     //회원가입
     @PostMapping("")
-    public ResponseEntity<Long> create(@RequestBody UserCreateDTO userCreateDTO) {
+    public ResponseEntity<Long> create(@RequestBody @Valid UserCreateDTO userCreateDTO) {
         //검증된 이메일인지 검사
         String email=userCreateDTO.getEmail();
 
-        boolean isVerifiedEmail = redisService.IsVerifiedEmail("email:" + email);
+        boolean isVerifiedEmail = redisService.IsVerifiedEmail(VERIFY_EMAIL_PREFIX + email);
         log.info("userCreateDTO:{}",isVerifiedEmail);
         if(!isVerifiedEmail){
-            throw new RuntimeException();
+            throw new IllegalArgumentException("이메일 인증이 완료되지 않았습니다.");
         }
         Long id=userService.joinUser(userCreateDTO);
         return ResponseEntity.ok(id);
     }
     //중복체크
     @PostMapping("/exist")
-    public ResponseEntity<Boolean>existUser(@RequestBody UserCreateDTO userCreateDTO) {
+    public ResponseEntity<Boolean>existUser(@RequestBody @Valid UserCreateDTO userCreateDTO) {
         String username=userCreateDTO.getUsername();
         Boolean exited = userService.existUser(username);
         return ResponseEntity.ok(exited);

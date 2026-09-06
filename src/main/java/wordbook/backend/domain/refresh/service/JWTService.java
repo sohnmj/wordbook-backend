@@ -52,11 +52,12 @@ public class JWTService {
         Boolean isExist=redisService.isTrue("user:"+username);
         if(!isExist){
             log.warn("refreshToken isn't exist");
-            throw new RuntimeException();
+            throw new IllegalArgumentException("리프레시 토큰이 존재하지 않습니다.");
         }
         else {
             if(!refreshToken.equals(redisService.getRedis("user:"+username))){
                 log.warn("refreshToken is wrong");
+                throw new IllegalArgumentException("유효하지 않거나 만료된 리프레시 토큰입니다.");
             }
         }
         log.info("username:{} role:{}",username,role);

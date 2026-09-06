@@ -57,7 +57,7 @@ public class WordBookWordService {
         // 유저 소속 단어와 단어장인지 확인
         WordBookEntity wordBookEntity = wordBookRepository.findByIdAndUserEntity_Id(wordbookId,userId).orElseThrow(()-> new RuntimeException("not found"));
         WordEntity wordEntity = wordRepository.findByIdAndUserEntity_Id(wordId,userId).orElseThrow(()-> new RuntimeException("not found"));
-
+        wordBookEntity.incrementWordCount();
         //저장
         WordBookWordEntity wordBookWordEntity = WordBookWordEntity.builder()
                 .wordBookEntity(wordBookEntity)
@@ -83,14 +83,14 @@ public class WordBookWordService {
                         ).toList();
 
     }
-    //단어장에서 단어 보여주기
+    //단어장에서 단어 삭제
     @Transactional
     public long removeWordBookWord(long wordBookId,long wordId,String username){
         Long userId = userService.findUserByUsername(username).getId();
         // 유저 소속 단어와 단어장인지 확인
         WordBookEntity wordBookEntity = wordBookRepository.findByIdAndUserEntity_Id(wordBookId,userId).orElseThrow(()-> new RuntimeException("not found"));
         WordEntity wordEntity = wordRepository.findByIdAndUserEntity_Id(wordId,userId).orElseThrow(()-> new RuntimeException("not found"));
-
+        wordBookEntity.decrementWordCount();
         WordBookWordEntity wordBookWordEntity = wordBookWordRepository.findByWordBookEntity_IdAndWordEntity_Id(wordBookId, wordId).orElseThrow(() -> new RuntimeException("not found"));
         Long id = wordBookWordEntity.getId();
         wordBookWordRepository.delete(wordBookWordEntity);

@@ -67,6 +67,7 @@ public class SecurityConfig {
         http
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.GET, "/healthcheck/env").permitAll()
+                        .requestMatchers("/error").permitAll()
                         .requestMatchers(HttpMethod.POST,  "/api/v2/user/**").permitAll()
                         .requestMatchers(HttpMethod.POST,  "/api/v2/mail/**").permitAll()
                         .requestMatchers(HttpMethod.POST,  "/api/v2/jwt/**").permitAll()

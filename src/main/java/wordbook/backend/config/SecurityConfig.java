@@ -66,6 +66,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain (HttpSecurity http, AuthenticationManager authenticationManager) {
         http
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.GET, "/healthcheck/env").permitAll()
                         .requestMatchers(HttpMethod.POST,  "/api/v2/user/**").permitAll()
                         .requestMatchers(HttpMethod.POST,  "/api/v2/mail/**").permitAll()
                         .requestMatchers(HttpMethod.POST,  "/api/v2/jwt/**").permitAll()

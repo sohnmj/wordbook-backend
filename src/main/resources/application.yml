@@ -1,0 +1,118 @@
+spring:
+  profiles:
+    active: local
+    group:
+      local: local,common,secret
+      blue: blue,common,secret
+      green: green,common,secret
+server:
+  env: local
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+server:
+  port: 8080
+  serviceAddress: localhost
+  serverName: local_server
+---
+spring:
+  config:
+    activate:
+      on-profile: blue
+server:
+  port: 8080
+  serviceAddress: 34.55.53.88
+  serverName: blue
+  env: blue
+---
+spring:
+  config:
+    activate:
+      on-profile: green
+server:
+  port: 8081
+  serviceAddress: 34.55.53.88
+  serverName: green
+  env: green
+---
+server:
+  forward-headers-strategy: framework
+logging:
+  level:
+    org.springframework.security: DEBUG
+spring:
+  config:
+    activate:
+      on-profile: common
+  application:
+    name: backend
+
+  # MySQL DB connection
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL}
+    username: root
+    password: ${DB_PASSWORD}
+
+  # JPA ddl, Naming and log
+  jpa:
+    hibernate:
+      ddl-auto: update
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+    show-sql: true
+
+  # Open Ai
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
+          temperature: 0.2
+          max-tokens: 300
+
+  # mail
+  mail:
+    username: ${MAIL_HOST}
+    host: smtp.naver.com
+    port: 465
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          ssl:
+            enable: true
+            trust: smtp.naver.com
+
+  # Redis
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:my-redis}
+      port: 6379
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-name: google
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: ${GOOGLE_REDIRECT_URL}
+            authorization-grant-type: authorization_code
+            scope: profile,email
+
+# JWT
+jwt:
+  secret: ${JWT_SECRET}
+  access-expiration: 3000000
+  refresh-expiration: 604800000
+
+app:
+  oauth2:
+    redirect-client-url: ${REDIRECT_CLIENT_URL}

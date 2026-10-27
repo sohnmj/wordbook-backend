@@ -1,0 +1,117 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build with Gradle
+        run: |
+          chmod +x ./gradlew
+          ./gradlew clean build -x test
+
+      - name: Login to DockerHub
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & Push Docker image
+        if: github.event_name == 'push'
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/wordbook:latest .
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/wordbook:latest
+
+  deploy:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set target
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "http://${{ secrets.EC2_HOST }}/healthcheck/env" || true)
+          echo "status: $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            CURRENT_UPSTREAM=$(curl -s "http://${{ secrets.EC2_HOST }}/healthcheck/env")
+          else
+            CURRENT_UPSTREAM=green
+          fi
+          echo "CURRENT_UPSTREAM=$CURRENT_UPSTREAM" >> $GITHUB_ENV
+          if [ "$CURRENT_UPSTREAM" = "blue" ]; then
+            echo "TARGET_UPSTREAM=green" >> $GITHUB_ENV
+            echo "TARGET_PORT=8081" >> $GITHUB_ENV
+          elif [ "$CURRENT_UPSTREAM" = "green" ]; then
+            echo "TARGET_UPSTREAM=blue" >> $GITHUB_ENV
+            echo "TARGET_PORT=8080" >> $GITHUB_ENV
+          else
+            echo "unknown upstream: $CURRENT_UPSTREAM"
+            exit 1
+          fi
+
+      - name: Deploy new container
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            set -e
+            cd ~/wordbook
+            docker compose -p ${{ env.TARGET_UPSTREAM }} -f docker-compose-${{ env.TARGET_UPSTREAM }}.yml pull
+            docker compose -p ${{ env.TARGET_UPSTREAM }} -f docker-compose-${{ env.TARGET_UPSTREAM }}.yml up -d
+
+      - name: Health check
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            for i in $(seq 1 10); do
+              if curl -sf http://localhost:${{ env.TARGET_PORT }}/healthcheck/env; then
+                echo " -> OK"
+                exit 0
+              fi
+              echo "waiting... ($i/10)"
+              sleep 10
+            done
+            echo "health check failed"
+            exit 1
+
+      - name: Change nginx upstream
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            set -e
+            docker exec -i nginxserver bash -c 'echo "set \$service_url ${{ env.TARGET_UPSTREAM }};" > /etc/nginx/conf.d/service-env.inc && nginx -s reload'
+
+      - name: Stop old container
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_PRIVATE_KEY }}
+          script: |
+            cd ~/wordbook
+            docker compose -p ${{ env.CURRENT_UPSTREAM }} -f docker-compose-${{ env.CURRENT_UPSTREAM }}.yml down || true

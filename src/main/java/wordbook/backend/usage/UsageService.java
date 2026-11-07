@@ -17,10 +17,9 @@ public class UsageService {
     }
     @Transactional
     public boolean getUsage(String username) {
-        UserEntity user = userService.findUserByUsername(username);
         long usage = redisService.getUsage(USAGE + username);
         if(usage==1){
-            userService.updateUsage(user);
+            userService.grantDailyUsage(username);
             return true;
         }
         else {
@@ -35,7 +34,6 @@ public class UsageService {
 
     @Transactional
     public void decreaseUsage(String username){
-        UserEntity user = userService.findUserByUsername(username);
-        userService.decreaseUsage(user);
+        userService.consumeUsage(username);
     }
 }

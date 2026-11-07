@@ -20,9 +20,6 @@ import java.util.List;
 @Builder
 @Table(name="user")
 public class UserEntity {
-    public void setId(Long id){
-        this.id=id;
-    }
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -55,9 +52,24 @@ public class UserEntity {
     @Enumerated(EnumType.STRING)
     @Column(name="social")
     private SocialProviderType social;
-
-    public void updateUsage(int usage) {
-        this.usage =this.usage+ usage;
+    public static final int DAILY_GRANT=10;
+//    public void updateUsage(int usage) {
+//        this.usage =this.usage+ usage;
+//    }
+    //24시간마다 10 사용량을 얻을 수 있음
+    public void updateDailyUsage() {
+        this.usage =this.usage+ DAILY_GRANT;
+    }
+    //사용 가능 여부 (잔량 > 0)
+    public boolean canUse() {
+        return this.usage > 0;
+    }
+    //사용량 사용 (실제 요청 경로는 동시성 때문에 UserRepository.consumeUsage 쿼리를 사용)
+    public void consumeUsage(){
+        if(this.usage<=0){
+            throw new IllegalStateException("일일 이용 횟수를 모두 소진하였습니다.");
+        }
+        this.usage--;
     }
     public void update(String email){
         this.email=email;

@@ -47,25 +47,21 @@ public class UserService {
         userRepository.delete(user);
         return userId;
     }
-    //usage업데이트
+    //일일 usage 지급
     @Transactional
-    public void updateUsage(UserEntity userEntity) {
-        userEntity.updateUsage(10);
-        userRepository.save(userEntity);
+    public void grantDailyUsage(String username) {
+        findUserByUsername(username).updateDailyUsage();
     }
+    //usage 1회 차감 (조건부 UPDATE로 원자적 처리, 잔량이 없으면 예외)
     @Transactional
-    public void decreaseUsage(UserEntity userEntity) {
-        userEntity.updateUsage(-1);
-        userRepository.save(userEntity);
+    public void consumeUsage(String username) {
+        if (userRepository.consumeUsage(username) == 0) {
+            throw new IllegalStateException("일일 이용 횟수를 모두 소진하였습니다.");
+        }
     }
-    //usage 0이상일때 true
+    //usage 0초과일때 true
     @Transactional(readOnly = true)
     public boolean possibleUsage(String username) {
-        UserEntity user = findUserByUsername(username);
-        int usage = user.getUsage();
-        if(usage <= 0){
-            return false;
-        }
-        return true;
+        return findUserByUsername(username).canUse();
     }
 }

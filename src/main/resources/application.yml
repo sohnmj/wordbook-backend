@@ -87,7 +87,7 @@ spring:
           auth: true
           ssl:
             enable: true
-            trust: smtp.naver.com
+            trust: smtp.gmail.com
 
   # Redis
   data:

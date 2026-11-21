@@ -74,7 +74,11 @@ spring:
           model: gpt-4o-mini
           temperature: 0.2
           max-tokens: 300
-
+    retry:
+      max-attempts: 1
+      backoff:
+        initial-interval: 1s
+      on-client-errors: false
   # mail
   mail:
     username: ${MAIL_HOST}
@@ -106,6 +110,11 @@ spring:
             redirect-uri: ${GOOGLE_REDIRECT_URL}
             authorization-grant-type: authorization_code
             scope: profile,email
+  http:
+    clients:
+      connect-timeout: 2s
+      read-timeout: 7s
+
 
 # JWT
 jwt:

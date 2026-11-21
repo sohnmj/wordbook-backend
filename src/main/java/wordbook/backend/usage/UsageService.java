@@ -36,4 +36,7 @@ public class UsageService {
     public void decreaseUsage(String username){
         userService.consumeUsage(username);
     }
+
+    @Transactional
+    public void refundUsage(String username){userService.refundUsage(username);}
 }

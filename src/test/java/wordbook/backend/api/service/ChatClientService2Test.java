@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import wordbook.backend.domain.word.dto.WordResponseDTO;
+import wordbook.backend.domain.word.dto.WordSearchRequestDTO;
 
 import static org.junit.jupiter.api.Assertions.*;
 @SpringBootTest
@@ -18,7 +19,7 @@ class ChatClientService2Test {
         String meaning="단어장";
         String topic="학습";
         //when
-        WordResponseDTO responseEX = chatClientService.getResponseEX(word, lang, meaning, topic);
+        WordResponseDTO responseEX = chatClientService.getResponseEX(new WordSearchRequestDTO(word, lang, meaning, topic));
 
         System.out.println("responseEX.getWord() = " + responseEX.getWord());
         System.out.println("responseEX.getExample() = " + responseEX.getExample());

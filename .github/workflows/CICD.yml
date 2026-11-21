@@ -75,6 +75,9 @@ jobs:
           script: |
             set -e
             cd ~/wordbook
+            docker image prune -f        # 이전 배포에서 남은 <none> 이미지 정리
+            docker builder prune -f      # 빌드 캐시 정리 (서버에서 build 안 하면 거의 0)
+            df -h /                      # 남은 용량을 로그에 남겨두기
             docker compose -p ${{ env.TARGET_UPSTREAM }} -f docker-compose-${{ env.TARGET_UPSTREAM }}.yml pull
             docker compose -p ${{ env.TARGET_UPSTREAM }} -f docker-compose-${{ env.TARGET_UPSTREAM }}.yml up -d
 

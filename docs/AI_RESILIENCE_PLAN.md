@@ -10,7 +10,7 @@ OpenAI 호출(`/api/v2/openai/search`)의 에러 처리, 과금 보호, 대기 �
 | OpenAI 에러 처리 없음 | `ChatClientService.callApi` | 401·429·5xx·타임아웃·JSON 파싱 실패가 모두 500. 클라이언트가 원인을 구분할 수 없음 |
 | 사용량 소진이 500 | `SearchController.search` (`IllegalStateException`) | 사용자에게 "한도 소진"을 알려줄 수 없음 |
 | 동시 요청 과금 구멍 | `possibleUsage` 확인 → OpenAI 호출 → `decreaseUsage` | 잔량 1에서 동시 N회 요청 시 N회 모두 OpenAI 과금 |
-| 타임아웃 없음 | `application.yml` (`max-tokens: 300`만 존재) | OpenAI가 느리면 사용자가 무한히 대기 |
+| 타임아웃 없음 + 공격적인 기본 재시도 | `application.yml` (`max-tokens: 300`만 존재) | HTTP 타임아웃이 없다. 여기에 Spring AI 기본 재시도(최대 10회, 2s×5배 백오프, 최대 180s 간격)가 겹쳐 검색 1회가 수십 분 걸리고 OpenAI 호출이 반복될 수 있음 |
 | 입력 길이 제한 없음 | `SearchController` 파라미터 | 긴 입력으로 입력 토큰 비용 증가 |
 | 부작용 있는 GET | `GET /search` | 단어 저장·사용량 차감이 GET으로 일어남. 재전송·프리페치에 취약 |
 | `@Valid` 실패 미처리 | `CustomControllerAdvice` (messaging 패키지 import) | 검증 실패가 400으로 나가지 않음 |
@@ -88,17 +88,68 @@ OpenAI 호출(`/api/v2/openai/search`)의 에러 처리, 과금 보호, 대기 �
 
 > 그릴링 중 합의한 "연결 3s / 응답 10s / 총 20s"는 재시도 1회를 넣으면 최악 26s가 되어 서로 맞지 않는다. 그래서 시도당 값을 위 표처럼 줄였다.
 
-### 상한을 강제하는 방법 (세 겹)
-1. **정적 예산**: `최대 시도 횟수 × (연결 + 응답 타임아웃) + 백오프 합 ≤ 20s`가 되도록 설정값을 고른다. 이 식은 설정 주석과 이 문서에 남기고, 값을 바꿀 때 다시 계산한다.
-2. **데드라인 확인**: 요청을 시작할 때 `deadline = now + 20s`를 정한다. 재시도하기 직전에 `남은 시간 < (연결 + 응답 타임아웃)`이면 재시도하지 않고 바로 503을 준다. 앞 단계(검증, Redis, 선차감)가 느렸던 경우에도 상한이 지켜진다.
-3. **재시도 계층 단일화**: 재시도는 한 곳에서만 한다. Spring AI 내장 재시도를 쓰면 우리 코드에서는 재시도하지 않는다. 직접 구현한다면 내장 재시도를 끈다(`max-attempts=1` 등). 두 계층이 겹치면 시도 횟수가 곱해져 예산이 깨진다.
+### 상한을 강제하는 방법
+**구현 방식: `application.yml` 설정만 사용한다**(코드 추가 없음, ADR-004).
+
+1. **정적 예산**: `(max-attempts + 1) × (connect + read) + backoff ≤ 20s`가 되도록 설정값을 고른다. 이 식은 `application.yml`의 설정 위 주석과 이 문서에 남기고, 값을 바꿀 때 다시 계산한다.
+2. **재시도 계층 단일화**: 재시도는 Spring AI 내장 `RetryTemplate`에서만 한다. `ChatClientService`에서는 재시도하지 않는다. 두 계층이 겹치면 시도 횟수가 곱해져 예산이 깨진다.
+3. ~~데드라인 확인~~ → **후속 과제**로 미룬다(9장). 재시도 직전에 남은 시간을 확인하려면 `RetryTemplate` 빈을 직접 등록해야 하는데, 정적 예산만으로 최악 19s를 지킬 수 있어서 이번에는 하지 않는다. 그래서 앞 단계(검증, Redis, 선차감)가 비정상적으로 느린 경우에는 20s를 조금 넘을 수 있다.
+
+### 설정 값
+
+```yaml
+# common 프로필
+spring:
+  ai:
+    retry:
+      max-attempts: 1            # 재시도 1회 = 최대 2번 시도
+      on-client-errors: false    # 4xx(429 포함)는 재시도하지 않음. 기본값이지만 의도를 드러내려고 명시
+      backoff:
+        initial-interval: 1s
+  http:
+    clients:                     # Boot 4: 복수형 clients (단수형 client는 4.0.0부터 deprecated)
+      connect-timeout: 2s
+      read-timeout: 7s
+```
+
+연결 타임아웃 2s는 서버(미국 중부)에서 `api.openai.com`까지 연결 시간을 실측한 뒤 확정한다.
+
+```
+curl -o /dev/null -s -w "connect=%{time_connect}s tls=%{time_appconnect}s\n" https://api.openai.com/v1/models
+```
+
+여유가 부족하면 connect 3s + read 6s로 바꿔도 예산은 그대로다(시도당 9s).
+
+### 확인된 사실 (2.0.0-M2 / Boot 4.0.1 jar의 설정 메타데이터와 바이트코드로 확인)
+- **Spring AI 재시도 기본값**: `max-attempts=10`, `backoff.initial-interval=2s`, `multiplier=5`, `max-interval=180s`
+- **재시도 구현**: Spring Framework 7의 `org.springframework.core.retry.RetryTemplate`. `OpenAiChatModel`이 호출할 때 이를 사용한다.
+- **재시도 대상 예외**: `TransientAiException`, `ResourceAccessException`(I/O 오류·타임아웃)
+- **HTTP 상태 분류 순서**:
+  1. `on-http-codes`에 있는 코드 → 재시도
+  2. 4xx이고 `on-client-errors=false` → `NonTransientAiException`(재시도 안 함)
+  3. `exclude-on-http-codes`에 있는 코드 → 재시도 안 함
+  4. 나머지(5xx) → 재시도
+
+  그래서 **429는 기본 설정에서도 재시도되지 않는다.**
+- **빈 교체**: `RetryTemplate`과 `ResponseErrorHandler` 빈은 `@ConditionalOnMissingBean`이다. 직접 등록하면 자동 설정 대신 우리 것이 쓰인다(후속 과제인 데드라인 확인에서 사용).
+- **HTTP 타임아웃 설정**: `spring.http.clients.connect-timeout`, `spring.http.clients.read-timeout`. Spring AI 쪽에는 타임아웃 설정이 없다.
 
 ### 문서 확인 필요
-- Spring AI 2.0.0-M2 재시도 설정: 기본값(켜져 있는지, 횟수, 백오프), 상태 코드별 제외 방법(429 제외), 2번의 데드라인 확인을 끼워 넣을 확장 지점(리스너·정책)이 있는지
-  - 내장 설정만으로 "최대 1회 + 429 제외 + 데드라인 확인"을 맞출 수 없으면 내장 재시도를 끄고 `ChatClientService`에서 직접 구현한다(ADR-004).
-- `ChatClient`가 실제로 쓰는 HTTP 클라이언트(webmvc와 webflux가 둘 다 classpath에 있음)와 연결·응답 타임아웃 설정 위치
-- "응답 타임아웃"의 의미: 소켓 read 타임아웃(바이트 사이 간격)인지, 요청 전체 타임아웃인지. read 타임아웃뿐이라면 바이트가 조금씩 계속 오는 경우 7s를 넘을 수 있다. 이때는 2번의 데드라인 확인과 함께 요청 전체 타임아웃을 지원하는지 확인한다.
+- `max-attempts`가 `RetryPolicy.maxRetries`에 그대로 들어간다. 그래서 "첫 시도를 뺀 재시도 횟수"로 보이지만, 실제 의미는 Framework 문서로 확인해야 한다. 아래 실측으로도 확인한다.
+- Spring AI의 `RestClient`가 `spring.http.clients.*` 타임아웃을 실제로 따르는지. Boot가 고르는 클라이언트 구현에 따라 connect 타임아웃에 TLS 핸드셰이크가 포함되는지도 달라진다. classpath에 Reactor Netty(webflux)가 있다.
+- read 타임아웃이 바이트 사이 간격인지, 응답 전체 시간인지. 바이트 사이 간격이라면 응답이 조금씩 계속 오는 경우 7s를 넘을 수 있다.
+- `RetryPolicy.Builder.timeout(Duration)`의 의미(후속 과제인 데드라인 확인에 쓸 수 있는지)
 - OpenAI 429 에러 본문 형식(나중에 rate limit만 재시도하게 바꿀 경우)
+
+### 적용 확인 방법 (로컬)
+1. `read-timeout`을 잠시 `1ms`로 바꾸고 검색을 1회 호출한다.
+2. 기대하는 결과:
+   - Spring AI 로그 `Retry error. Retry count:1`이 1번 찍힘
+   - 약 1s 뒤 503 `AI_UNAVAILABLE` 응답
+   - advice의 ERROR 로그에 cause로 `ResourceAccessException`이 남음
+3. 원래 값으로 되돌린다.
+
+OpenAI 호출이 나가므로 1~2회 과금된다.
 
 ### 멱등성 키 TTL과의 관계
 `IN_PROGRESS` TTL(30s)은 상한(20s)에 DB·Redis 처리 여유를 더한 값이다. 처리가 끝나기 전에 키가 만료되어 중복 실행되는 일이 없도록 **TTL > 상한**을 유지한다.
@@ -122,7 +173,7 @@ OpenAI 호출(`/api/v2/openai/search`)의 에러 처리, 과금 보호, 대기 �
    - `CustomControllerAdvice`의 `MethodArgumentNotValidException` import 수정
    - `GET` → `POST` + `@RequestBody` DTO + `@Size` 검증
    - OpenAI 예외와 파싱 실패를 `AiUnavailableException`으로 변환
-2. **타임아웃·재시도**: 4장의 문서 확인 → 설정 또는 직접 구현 → 데드라인 확인
+2. **타임아웃·재시도**: `application.yml`에 `spring.ai.retry.*`, `spring.http.clients.*` 설정과 예산 식 주석을 추가한다. connect 시간을 실측하고, 4장의 방법으로 적용 여부를 확인한다.
 3. **선차감 + 환불**: 호출 전에 `consumeUsage`를 커밋하고, 실패 시 환불용 조건부 UPDATE를 실행. `possibleUsage` 사전 확인은 제거
 4. **멱등성 키**: Redis 상태(`IN_PROGRESS` / `DONE`), 409 처리, 실패 시 키 삭제
 
@@ -142,4 +193,5 @@ OpenAI 호출(`/api/v2/openai/search`)의 에러 처리, 과금 보호, 대기 �
 - 단어 저장은 성공했는데 `DONE` 기록이 실패하는 경우 → ADR-006
 - 선차감과 환불 사이에 서버가 죽으면 사용량 1회 손실 → ADR-003
 - 스트리밍, 비동기 폴링, 전체 비용 상한 → ADR-001, ADR-007
+- **후속**: 재시도 직전 데드라인 확인. `RetryTemplate` 빈을 직접 등록한다. 자동 설정의 `includes(TransientAiException, ResourceAccessException)`을 다시 써야 하고, `timeout` 설정이 필요하다 → ADR-004
 - **미결**: 2단계에서 Redis 자체가 장애일 때의 정책. 추천은 fail-closed(503)이다. 멱등성 없이 진행하면 중복 과금 보호가 사라지기 때문이다. 4단계 구현 전에 확정한다.

@@ -6,6 +6,8 @@ import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 import wordbook.backend.api.ApiResponseDTO;
 import wordbook.backend.domain.word.dto.WordResponseDTO;
+import wordbook.backend.domain.word.dto.WordSearchRequestDTO;
+import wordbook.backend.error.api.AIUnavailableException;
 
 @Service
 @Primary
@@ -57,19 +59,27 @@ public class ChatClientService implements ApiService {
         this.objectMapper = objectMapper;
     }
     @Override
-    public WordResponseDTO getResponseEX(String word, String lang,String meaning,String topic) {
-
+    public WordResponseDTO getResponseEX(WordSearchRequestDTO dto) {
+        String word=dto.keyword();
+        String lang=dto.lang();
+        String meaning=dto.meaning();
+        String topic=dto.topic();
         String content=createContent(word,lang,meaning,topic);
         String response = callApi(content);
-        ApiResponseDTO apiResponseDTO = objectMapper.readValue(response, ApiResponseDTO.class);
-        return WordResponseDTO.builder()
-                .meaning(apiResponseDTO.getMeaning())
-                .example(apiResponseDTO.getExample())
-                .word(apiResponseDTO.getWord())
-                .translation(apiResponseDTO.getTranslation())
-                .lang(lang)
-                .useword(apiResponseDTO.getUseword())
-                .build();
+        try {
+            ApiResponseDTO apiResponseDTO = objectMapper.readValue(response, ApiResponseDTO.class);
+
+            return WordResponseDTO.builder()
+                    .meaning(apiResponseDTO.getMeaning())
+                    .example(apiResponseDTO.getExample())
+                    .word(apiResponseDTO.getWord())
+                    .translation(apiResponseDTO.getTranslation())
+                    .lang(lang)
+                    .useword(apiResponseDTO.getUseword())
+                    .build();
+        } catch (RuntimeException runtimeException){
+            throw new AIUnavailableException(runtimeException);
+        }
     }
 
     @Override
@@ -85,13 +95,17 @@ that matches the given meaning and topic/situation
     }
 
 
-    public String callApi(String content){
-        String text= chatClient.prompt()
-                .system(systemMessage)
-                .user(content)
-                .call()
-                .content();
-        return text;
+    public String callApi(String content) {
+        try {
+            String text = chatClient.prompt()
+                    .system(systemMessage)
+                    .user(content)
+                    .call()
+                    .content();
+            return text;
+        }catch(RuntimeException runtimeException){
+            throw new AIUnavailableException(runtimeException);
+        }
     }
 
 }

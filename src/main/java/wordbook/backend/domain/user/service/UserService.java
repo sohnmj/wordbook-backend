@@ -10,6 +10,7 @@ import wordbook.backend.domain.user.dto.UserCreateDTO;
 import wordbook.backend.domain.user.entity.UserEntity;
 import wordbook.backend.domain.user.entity.UserRoleType;
 import wordbook.backend.domain.user.repository.UserRepository;
+import wordbook.backend.error.api.UsageExhaustedException;
 
 @Service
 @Slf4j
@@ -56,12 +57,16 @@ public class UserService {
     @Transactional
     public void consumeUsage(String username) {
         if (userRepository.consumeUsage(username) == 0) {
-            throw new IllegalStateException("일일 이용 횟수를 모두 소진하였습니다.");
+            throw new UsageExhaustedException();
         }
     }
-    //usage 0초과일때 true
-    @Transactional(readOnly = true)
-    public boolean possibleUsage(String username) {
-        return findUserByUsername(username).canUse();
+
+    @Transactional
+    public void refundUsage(String username){
+        int success = userRepository.refundUsage(username);
+        if(success==0){
+            log.warn("환불한 사용자 {}가 없습니다.",username);
+        }
     }
+
 }

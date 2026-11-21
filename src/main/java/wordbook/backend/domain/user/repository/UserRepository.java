@@ -18,4 +18,8 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     @Modifying(clearAutomatically = true)
     @Query("update UserEntity u set u.usage = u.usage - 1 where u.username = :username and u.usage > 0")
     int consumeUsage(@Param("username") String username);
+
+    @Modifying(clearAutomatically = true)
+    @Query("update UserEntity u set u.usage = u.usage +1 where u.username = :username")
+    int refundUsage(@Param("username") String username);
 }

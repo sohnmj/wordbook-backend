@@ -1,53 +1,57 @@
 package wordbook.backend.controller;
 
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import wordbook.backend.api.ApiResponseDTO;
 import wordbook.backend.api.service.ApiService;
 import wordbook.backend.domain.user.service.UserService;
 import wordbook.backend.domain.word.dto.WordResponseDTO;
 
+import wordbook.backend.domain.word.dto.WordSearchRequestDTO;
 import wordbook.backend.domain.word.service.WordService;
+import wordbook.backend.error.api.AIUnavailableException;
+import wordbook.backend.error.api.UsageExhaustedException;
 import wordbook.backend.usage.UsageService;
 
 @Slf4j
 @RestController
-@Validated
+
 @RequestMapping("/api/v2/openai")
 public class SearchController {
     private final ApiService apiService;
     private final WordService wordService;
-    private final UserService userService;
+
     private final UsageService usageService;
 
-    public SearchController(ApiService apiService, WordService wordService, UserService userService, UsageService usageService) {
+    public SearchController(ApiService apiService, WordService wordService,  UsageService usageService) {
         this.apiService = apiService;
         this.wordService = wordService;
-        this.userService = userService;
         this.usageService = usageService;
     }
     //예문 검색
-    @GetMapping("/search")
+    @PostMapping("/search")
     public ResponseEntity<WordResponseDTO> search(
             Authentication authentication,
-            @NotBlank(message = "no keyword") @RequestParam String keyword,
-            @NotBlank(message = "no lang") @RequestParam String lang,
-            @RequestParam(required = false) String topic,
-            @RequestParam(required = false) String meaning
-    )
-    {    String username = authentication.getName();
-        log.info("username:{}",username);
-        //usage 없으면 에러 던지기
-        if(!userService.possibleUsage(username)){
-            throw new IllegalStateException("일일 이용 횟수를 모두 소진하였습니다.");
-        }
-        WordResponseDTO response = apiService.getResponseEX(keyword, lang,meaning,topic);
-        WordResponseDTO wordResponseDTO = wordService.createWord( response, username);
+            @Valid @RequestBody WordSearchRequestDTO wordSearchRequestDTO
+            )
+    {
+        String username = authentication.getName();
         usageService.decreaseUsage(username);
-        return ResponseEntity.ok(wordResponseDTO);
+        try {
+            WordResponseDTO response = apiService.getResponseEX(wordSearchRequestDTO);
+            WordResponseDTO wordResponseDTO = wordService.createWord(response, username);
+            return ResponseEntity.ok(wordResponseDTO);
+        }catch (RuntimeException ex){
+            try {
+                usageService.refundUsage(username);
+            } catch (Exception e) {
+                log.warn("{} 환불을 실패",username);
+            }
+            throw ex;
+        }
+
+
     }
 }

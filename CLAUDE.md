@@ -2,93 +2,83 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Commands
+## 협업 방식 (최우선)
 
-```bash
-./gradlew compileJava                 # fast syntax/type check
-./gradlew build                       # compile + test + jar
-./gradlew bootRun                     # run locally (needs env vars + MySQL + Redis)
-./gradlew test                        # all tests
-./gradlew test --tests "wordbook.backend.mail.MailServiceTest"          # single class
-./gradlew test --tests "wordbook.backend.mail.MailServiceTest.sendMail" # single method
-```
+사용자는 **학습자**이고, Claude는 멘토로서 돕는다.
 
-Docker: `./gradlew bootJar` produces `build/libs/*SNAPSHOT.jar`, which the `Dockerfile` copies. `docker compose up` starts Redis + the published `wellsohn/wordbook` image and reads secrets from the root `.env`. For local dev, `docker compose up my-redis` alone is usually enough (MySQL is expected to be external, reachable via `host.docker.internal`).
+- 사용자가 "코드 짜줘"라고 하기 전에는 파일을 수정하지 않고, 완성 코드도 작성하지 않는다.
+- 막히면 개념 → 힌트(봐야 할 클래스·설정) → 핵심만 담은 짧은 예시 순서로 돕는다.
+- 리뷰할 때는 문제의 위치와 이유만 말하고, 수정은 사용자가 한다.
+- 라이브러리나 OpenAI 스펙의 기본값은 추측하지 않고 "문서 확인 필요"라고 말한다.
+- 한국어로 간결하게 답한다.
 
-`src/main/resources/application.properties` is **gitignored** and reads everything from the environment: `DB_URL`, `DB_PASSWORD`, `JWT_SECRET`, `OPENAI_API_KEY`, `MAIL_HOST`, `MAIL_PASSWORD`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URL`, `REDIRECT_CLIENT_URL`, `SPRING_DATA_REDIS_HOST`.
+## 명령어
 
-The project path contains Korean characters; shell output may render it mojibake, but the wrapper commands work fine.
+- `./gradlew compileJava`: 빠른 컴파일 확인
+- `./gradlew build -x test`: CI와 같은 빌드
+- `./gradlew test --tests "<FQCN>[.<method>]"`: 단일 테스트 실행
+- `./gradlew bootRun`: 로컬 실행. 환경변수와 외부 MySQL, Redis가 필요하다.
+- `docker compose up my-redis`: 로컬 Redis 실행
 
-## Stack — read before touching imports
+## 실행 환경
 
-Spring Boot **4.0.1** on Java 17, Gradle wrapper 9.3.0, Spring AI **2.0.0-M2**. These are pre-GA versions whose package layout differs from Boot 3, and the code already uses the new locations. Do not "correct" them to the familiar Boot 3 names:
+- `application.yml` 하나에 프로필 그룹 `local|blue|green` + `common` + `secret`이 들어 있다. 비밀값은 모두 환경변수에서 읽는다.
+- CI(`.github/workflows/CICD.yml`)는 master에 push될 때 테스트 없이 빌드하고 Docker Hub에 푸시한다.
+- 그다음 `/healthcheck/env`로 현재 색을 확인하고 blue(8080)/green(8081)을 전환해 무중단 배포한다.
 
-- `tools.jackson.databind.ObjectMapper` / `tools.jackson.core.type.TypeReference` (Jackson 3), not `com.fasterxml.jackson.*`
-- `org.springframework.boot:spring-boot-starter-webmvc` (webflux is also on the classpath)
-- Test annotations from `org.springframework.boot.webmvc.test.autoconfigure.*` (`@WebMvcTest`, `@AutoConfigureMockMvc`), and `@MockitoBean` from `org.springframework.test.context.bean.override.mockito`
-- `PathPatternRequestMatcher.withDefaults().matcher(...)` for security request matchers
+## 스택 주의
 
-## Package layout
+Spring Boot **4.0.1**, Spring AI **2.0.0-M2**, Java 17. 둘 다 Boot 3와 패키지 위치가 다르다. 아래 이름을 Boot 3 시절 이름으로 "고치지" 말 것.
 
-Controllers are centralized in `wordbook.backend.controller`; everything else is grouped by aggregate under `wordbook.backend.domain.<aggregate>/{dto,entity,repository,service}` (`user`, `word`, `wordbook`, `wordbookword`, `wordbooklike`, `wordbookcomment`, `refresh`). Cross-cutting concerns sit at the top level: `security/{filter,handler,util}`, `redis`, `mail`, `usage`, `api`, `generator`, `config`.
+- Jackson 3: `tools.jackson.*`
+- 테스트 어노테이션: `org.springframework.boot.webmvc.test.autoconfigure.*`, `@MockitoBean`
+- 시큐리티 매처: `PathPatternRequestMatcher`
 
-Services never take another aggregate's repository — they depend on the other aggregate's *service* (e.g. `WordBookService` → `UserService.findUserByUsername`). Keep that direction.
+webmvc와 webflux가 둘 다 classpath에 있다.
 
-## Authentication
+## 구조
 
-Stateless JWT, session policy `STATELESS`, CSRF disabled.
+- 컨트롤러는 `controller`에 모여 있다.
+- 도메인은 `domain.<aggregate>/{dto,entity,repository,service}` 아래에 있다.
+- 공통 관심사는 최상위 패키지 `security`, `redis`, `mail`, `usage`, `api`, `config`에 있다.
+- 서비스는 다른 aggregate의 repository를 직접 쓰지 않고, 그 aggregate의 **서비스**를 통해 접근한다.
+- 엔티티에는 setter가 없다. 변경은 이름 있는 메서드로 하고, 저장은 dirty checking에 맡긴다.
+- `ddl-auto=update`이고 네이밍 전략이 `PhysicalNamingStrategyStandardImpl`이다. 따라서 모든 컬럼에 `@Column(name=...)`을 명시해야 한다.
+- 소유권 검사는 쿼리 조건으로 한다(`findByIdAndUserEntity_Id`).
 
-- **Form login**: `LoginFilter` (installed at `UsernamePasswordAuthenticationFilter`) handles `POST /login` but reads a **JSON** body (`{"username","password"}`), not form params. `LoginSuccessHandler` returns `{"accessToken": "..."}` in the body and sets the refresh token as an httpOnly cookie named `refresh`.
-- **Per-request auth**: `JWTFilter` (before `LoginFilter`) reads `Authorization: Bearer <token>`; a missing header passes through, a malformed one throws, an invalid/expired one returns 401 JSON.
-- **Token typing**: `JWTUtil.createToken(username, role, isAccess)` stamps a `type` claim (`access`/`refresh`); `isValid(token, isAccess)` rejects a token used in the wrong slot. Always pass the right `isAccess` flag.
-- **Refresh rotation**: `POST /api/v2/jwt/exchange` (`JWTService.refreshRotate`) reads the `refresh` cookie, validates it against the Redis whitelist key `user:<username>`, then issues a new pair.
-- **Google OAuth2**: `CustomOAuth2UserService` upserts a user with username `GOOGLE_<sub>` and `isSocial=true`. `SocialSuccessHandler` only sets the refresh cookie and redirects to `app.oauth2.redirect-client-url` — the client must then call `/api/v2/jwt/exchange` to obtain an access token.
-- **Public endpoints**: `POST` on `/api/v2/user/**`, `/api/v2/mail/**`, `/api/v2/jwt/**`. Everything else (including `GET /api/v2/user/remove`) requires authentication. Controllers get the caller via `Authentication#getName()`.
+## 인증
 
-## Redis (three distinct responsibilities)
+- 세션 없는 JWT 방식이다.
+- 로그인: `LoginFilter`가 JSON body를 받는다. access token은 응답 body로, refresh token은 httpOnly 쿠키 `refresh`로 내려준다.
+- `JWTUtil`은 토큰에 `type` 클레임(access/refresh)을 넣는다. 검증할 때 `isAccess` 플래그를 맞게 넘겨야 한다.
+- refresh 토큰은 Redis 화이트리스트 `user:<username>`(TTL 7일)에 저장되고, `/api/v2/jwt/exchange`에서 교체(rotate)된다.
+- Google OAuth2 로그인은 refresh 쿠키만 심고 리다이렉트한다. 클라이언트가 이후 exchange를 호출해야 access token을 받는다.
 
-`RedisService` is the single wrapper around `StringRedisTemplate`:
+## AI 예문 생성과 사용량
 
-1. **Email verification** — `wordbook:email:verify:<email>` holds the code (TTL 300s). On a correct code the value is overwritten with the literal `verify` for another 300s; `UserController.create` consumes and deletes it, so signup must finish inside that window.
-2. **Refresh whitelist** — `user:<username>` → current refresh token, TTL 7 days.
-3. **AI quota** — `getUsage` runs a Lua script atomically over `usage:<username>` (per-user daily claim lock, TTL 86400) and `wordbook:ai_api:limit` (global counter, self-initializing to 100). Returns `1` if the claim succeeded, `-1` if already claimed today or the global pool is exhausted.
+- 호출 경로: `POST /api/v2/openai/search`(헤더 `Idempotency-Key` 필수, UUID) → `search.SearchService`가 멱등성 키 → 선차감 → AI 호출 → 단어 저장 → `DONE` 기록 순으로 조립한다. 실패하면 환불하고 키를 지운다. `SearchService`에는 `@Transactional`을 붙이지 않는다.
+- `ChatClientService`가 Spring AI `ChatClient`를 **동기**로 호출한다. 응답은 엄격한 JSON이고 실패는 `AIUnavailableException`(503)으로 바꾼다.
+- 멱등성 키: Redis `idem:<user>:<key>`, 값은 `IN_PROGRESS`(30s) 또는 `DONE:<응답 JSON>`(24h). Redis 장애 시 503(fail-closed).
+- 타임아웃·재시도는 `application.yml`의 `spring.ai.retry.*`, `spring.http.clients.*`로만 설정한다(최대 1회 재시도, 최악 19s).
+- 설계 결정은 `docs/ADR.md`, 전체 계획은 `docs/AI_RESILIENCE_PLAN.md`에 있다.
+- 사용량은 두 단계다.
+  - Redis Lua(`RedisService.getUsage`): 하루 1회 claim을 처리한다. 키는 `usage:<user>`와 전역 키 `wordbook:ai_api:limit`이다.
+  - claim에 성공하면 DB `usage`에 +10을 더한다. 검색 1회마다 조건부 UPDATE로 1씩 차감한다.
+- 후속 과제: 재시도 직전 데드라인 확인, 단어 저장 실패의 상태 코드, 비동기 처리·폴링(ADR-007).
 
-Known inconsistency: `UsageScheduler` (cron `0 0 10 * * *`) resets a key named `API:usage`, which no longer matches the Lua script's `wordbook:ai_api:limit` (renamed in commit `01cbf9f`). The global counter is set without a TTL, so in practice it currently never refills.
+## 알려진 문제
 
-## AI quota model (two tiers)
+- `UsageScheduler`는 `API:usage` 키를 리셋한다. Lua 스크립트가 쓰는 키(`wordbook:ai_api:limit`)와 이름이 달라서 전역 한도가 다시 채워지지 않는다.
+- `src/test`는 실험용이다. 실제 DB와 Redis, 시드 데이터에 의존하고, 일부는 주석 처리돼 있다. H2 `test` 프로필은 동작하지 않는다.
+  - 새 테스트는 웹 계층이면 `WordbookLikeControllerTest` 방식(`@WebMvcTest`)을 따른다.
+  - 서비스 계층이면 `MockitoExtension`을 쓴다.
 
-- `POST /api/v2/usage` → `UsageService.getUsage` claims the daily grant and adds **+10** to `UserEntity.usage` (a DB column).
-- `GET /api/v2/openai/search` checks `UserService.possibleUsage` (usage > 0), calls the model, persists the word, then decrements `usage` by 1.
+## 스타일
 
-So Redis gates *claiming* the daily allowance; the MySQL `api_usage` column is the spendable balance.
+- 주석, 로그, 테스트 메서드 이름은 한국어로 쓴다.
+- 생성자 주입 방식은 파일마다 다르다. 수동 작성과 `@RequiredArgsConstructor`가 섞여 있으니 해당 파일 방식을 따른다.
+- 엔드포인트는 모두 `/api/v2/` 아래에 둔다.
 
-## AI integration
+## 문서
 
-`ApiService` is the interface; `ChatClientService` is the `@Primary` implementation over Spring AI's `ChatClient`. Its system prompt forces a strict JSON response which is parsed into `ApiResponseDTO` and mapped to `WordResponseDTO`. The model returns both `word` and `useword` (the inflected form actually used in the example); `WordService.getIndexFromExample` derives `exampleStartIndex`/`exampleLastIndex` from `useword` so the client can highlight it. Model config (`gpt-4o-mini`, temp 0.2, max 300 tokens) lives in `application.properties`.
-
-## Persistence conventions
-
-- `spring.jpa.hibernate.ddl-auto=update` with `PhysicalNamingStrategyStandardImpl` — there are no migrations, and **no** camelCase→snake_case conversion. Every column needs an explicit `@Column(name="...")`.
-- All `@ManyToOne` are `LAZY`; `WordBookWordRepository.findWithWord` and `WordRepository.findTestWord` use explicit JPQL joins to avoid N+1. `findTestWord` orders by `function('RAND')` (MySQL-specific).
-- `WordBookEntity` carries denormalized `likeCount`/`wordCount`, mutated through `increment*`/`decrement*` inside `@Transactional` service methods and flushed by dirty checking — no explicit `save()` call.
-- Ownership checks are done in the query, not after loading: `findByIdAndUserEntity_Id(id, userId)`.
-- Entities are Lombok `@Builder` + `@Getter` with no setters; mutation goes through named methods (`update`, `updateUsage`, `increment*`).
-
-## Error handling
-
-`CustomControllerAdvice` handles only `IllegalArgumentException` and — via an incorrect import (`org.springframework.messaging.handler.annotation.support.MethodArgumentNotValidException`) — a validation exception that MVC never throws, so `@Valid` failures on request bodies fall through to the default handler. Services throw bare `RuntimeException` for not-found cases. If you touch this area, fix the import to `org.springframework.web.bind.MethodArgumentNotValidException` rather than adding more handlers around it.
-
-## Tests — current state
-
-Treat `src/test` as exploratory scratch work, not a suite to keep green:
-
-- Several `@SpringBootTest` classes hit a **live** MySQL/Redis and assume seeded data (hardcoded `username="admin1"`, `id=12L`), so they fail on a clean environment.
-- Whole files are commented out (`RedisServiceTest`, `WordBookWordControllerTest`).
-- `application-test.yml` defines an H2 `test` profile, but no H2 dependency is declared and no test activates the profile — that path does not work as written.
-- `MailServiceTest` still asserts the pre-rename Redis prefix `email:` and therefore fails.
-
-For new tests, follow `WordbookLikeControllerTest` (`@WebMvcTest` + `@MockitoBean` + `@WithMockUser`) for the web layer, or plain `@ExtendWith(MockitoExtension.class)` + `@InjectMocks` for services. Test method names in Korean are the existing convention.
-
-## Style
-
-Comments and log messages are in Korean; keep that when editing existing files. Constructor injection is written by hand in most classes, with `@RequiredArgsConstructor` in the newer ones (`WordBookLikeService`, `WordBookCommentService`) — match the file you are in. All endpoints live under `/api/v2/`.
+- ADR 결정을 바꿀 때 이전 결정은 지우지 말고 변경 이력으로 남긴다.

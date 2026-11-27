@@ -4,11 +4,19 @@ import jakarta.transaction.Transactional;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
+
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
 
 @Service
 public class RedisService {
+    //멱등성 키 값 형식: 처리 중이면 IN_PROGRESS, 완료면 DONE:<응답 JSON>
+    private static final String IDEMPOTENCY_IN_PROGRESS = "IN_PROGRESS";
+    private static final String IDEMPOTENCY_DONE_PREFIX = "DONE:";
+    //처리 중 TTL은 요청 상한(20s)보다 길어야 처리 도중 만료되지 않는다
+    private static final Duration IDEMPOTENCY_IN_PROGRESS_TTL = Duration.ofSeconds(30);
+    private static final Duration IDEMPOTENCY_DONE_TTL = Duration.ofHours(24);
 
     private final String VERIFIED_EMAIL="verify";
     private final String API_USAGE="wordbook:ai_api:limit";
@@ -93,5 +101,25 @@ public class RedisService {
         );
 
         return result;
+    }
+
+    //멱등성 키 등록하기
+    public IdempotencyResult tryStart(String key){
+        Boolean b = stringRedisTemplate.opsForValue().setIfAbsent(key, IDEMPOTENCY_IN_PROGRESS, IDEMPOTENCY_IN_PROGRESS_TTL);
+        if (Boolean.TRUE.equals(b)) {
+            return IdempotencyResult.started();
+        }
+        String value=stringRedisTemplate.opsForValue().get(key);
+        if(value!=null&&value.startsWith(IDEMPOTENCY_DONE_PREFIX)){
+            return IdempotencyResult.done(value.substring(5));
+        }
+        return IdempotencyResult.inProgress();
+    }
+
+    public void markIdempotencyDone(String key, String responseJson){
+        stringRedisTemplate.opsForValue().set(key,IDEMPOTENCY_DONE_PREFIX+responseJson,IDEMPOTENCY_DONE_TTL);
+    }
+    public void releaseIdempotency(String key){
+            stringRedisTemplate.delete(key);
     }
 }

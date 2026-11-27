@@ -12,46 +12,43 @@ import wordbook.backend.domain.word.dto.WordResponseDTO;
 import wordbook.backend.domain.word.dto.WordSearchRequestDTO;
 import wordbook.backend.domain.word.service.WordService;
 import wordbook.backend.error.api.AIUnavailableException;
+import wordbook.backend.error.api.InvalidInputException;
 import wordbook.backend.error.api.UsageExhaustedException;
+import wordbook.backend.search.SearchService;
 import wordbook.backend.usage.UsageService;
+
+import java.util.regex.Pattern;
 
 @Slf4j
 @RestController
 
 @RequestMapping("/api/v2/openai")
 public class SearchController {
-    private final ApiService apiService;
-    private final WordService wordService;
+    //멱등성 키는 UUID 형식만 허용한다. 값이 Redis 키(idem:<user>:<key>)에 그대로 들어가므로 길이·문자를 제한한다
+    private static final Pattern UUID_PATTERN =
+            Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
+    private final SearchService searchService;
 
-    private final UsageService usageService;
-
-    public SearchController(ApiService apiService, WordService wordService,  UsageService usageService) {
-        this.apiService = apiService;
-        this.wordService = wordService;
-        this.usageService = usageService;
+    public SearchController(SearchService searchService) {
+        this.searchService = searchService;
     }
     //예문 검색
     @PostMapping("/search")
     public ResponseEntity<WordResponseDTO> search(
             Authentication authentication,
+            @RequestHeader("Idempotency-Key") String idempotencyKey,
             @Valid @RequestBody WordSearchRequestDTO wordSearchRequestDTO
             )
     {
         String username = authentication.getName();
-        usageService.decreaseUsage(username);
-        try {
-            WordResponseDTO response = apiService.getResponseEX(wordSearchRequestDTO);
-            WordResponseDTO wordResponseDTO = wordService.createWord(response, username);
-            return ResponseEntity.ok(wordResponseDTO);
-        }catch (RuntimeException ex){
-            try {
-                usageService.refundUsage(username);
-            } catch (Exception e) {
-                log.warn("{} 환불을 실패",username);
-            }
-            throw ex;
+        validateIdempotencyKey(idempotencyKey);
+        WordResponseDTO wordResponseDTO=searchService.search(username,idempotencyKey.toLowerCase(),wordSearchRequestDTO);
+        return ResponseEntity.ok(wordResponseDTO);
+
+    }
+    private void validateIdempotencyKey(String idempotencyKey){
+        if(!UUID_PATTERN.matcher(idempotencyKey).matches()){
+            throw new InvalidInputException();
         }
-
-
     }
 }

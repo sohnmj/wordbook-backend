@@ -1,7 +1,10 @@
 package wordbook.backend.controller;
 
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junit.jupiter.api.Test;
-import org.mockito.InOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -10,135 +13,140 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
-import wordbook.backend.api.service.ApiService;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import wordbook.backend.domain.word.dto.WordResponseDTO;
 import wordbook.backend.domain.word.dto.WordSearchRequestDTO;
-import wordbook.backend.domain.word.service.WordService;
-import wordbook.backend.error.api.AIUnavailableException;
+import wordbook.backend.error.ErrorCode;
+import wordbook.backend.error.api.RequestInProgressException;
+import wordbook.backend.error.api.TemporarilyUnavailableException;
 import wordbook.backend.error.api.UsageExhaustedException;
-import wordbook.backend.usage.UsageService;
+import wordbook.backend.search.SearchService;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import java.util.stream.Stream;
+
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+//HTTP 경계만 검증한다: 헤더·body 검증, 서비스 호출 인자, 예외 → 상태 코드 매핑. 검색 흐름 자체는 SearchServiceTest에서 본다
 @WebMvcTest(SearchController.class)
 @AutoConfigureMockMvc(addFilters = true)
 class SearchControllerTest {
 
     private static final String URL = "/api/v2/openai/search";
     private static final String USER = "testUser";
+    private static final String IDEM_KEY = "3f2b8c1e-9a4d-4e6f-8b2a-1c3d5e7f9a0b";
     private static final String VALID_BODY = """
             {"keyword": "apple", "lang": "en"}
             """;
+    private static final WordSearchRequestDTO VALID_REQUEST = new WordSearchRequestDTO("apple", "en", null, null);
 
     @Autowired
     private MockMvc mockMvc;
 
     @MockitoBean
-    private ApiService apiService;
-    @MockitoBean
-    private WordService wordService;
-    @MockitoBean
-    private UsageService usageService;
+    private SearchService searchService;
 
-    //JSON body로 검색 요청을 보낸다
-    private ResultActions 검색_요청(String body) throws Exception {
-        return mockMvc.perform(post(URL)
+    private MockHttpServletRequestBuilder 요청(String body) {
+        return post(URL)
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(body));
+                .content(body);
     }
 
-    // ===== 사용량·환불 흐름 =====
+    //멱등성 키 헤더를 붙여 검색 요청을 보낸다
+    private ResultActions 검색_요청(String body) throws Exception {
+        return mockMvc.perform(요청(body).header("Idempotency-Key", IDEM_KEY));
+    }
+
+    private void 서비스가_호출되지_않았다() {
+        verify(searchService, never()).search(anyString(), anyString(), any());
+    }
+
+    // ===== 정상 =====
 
     @Test
     @WithMockUser(username = USER)
-    void 사용량이_소진되면_429를_응답하고_AI호출_저장_환불이_없다() throws Exception {
-        willThrow(new UsageExhaustedException()).given(usageService).decreaseUsage(USER);
-
-        검색_요청(VALID_BODY)
-                .andExpect(status().isTooManyRequests())
-                .andExpect(jsonPath("$.code").value("USAGE_EXHAUSTED"));
-
-        verify(apiService, never()).getResponseEX(any());
-        verify(wordService, never()).createWord(any(), anyString());
-        verify(usageService, never()).refundUsage(anyString());
-    }
-
-    @Test
-    @WithMockUser(username = USER)
-    void AI호출이_실패하면_환불하고_503을_응답한다() throws Exception {
-        given(apiService.getResponseEX(any()))
-                .willThrow(new AIUnavailableException(new RuntimeException("OpenAI 장애")));
-
-        검색_요청(VALID_BODY)
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(jsonPath("$.code").value("AI_UNAVAILABLE"));
-
-        verify(usageService, times(1)).refundUsage(USER);
-        verify(wordService, never()).createWord(any(), anyString());
-    }
-
-    @Test
-    @WithMockUser(username = USER)
-    void 단어_저장이_실패하면_환불한다() {
-        given(apiService.getResponseEX(any())).willReturn(WordResponseDTO.builder().build());
-        given(wordService.createWord(any(), eq(USER))).willThrow(new IllegalStateException("저장 실패"));
-
-        // 저장 실패의 응답 코드(500/503)는 아직 미정이라, 처리되지 않은 예외가 그대로 전파되는 현재 동작만 확인한다
-        assertThatThrownBy(() -> 검색_요청(VALID_BODY))
-                .hasRootCauseMessage("저장 실패");
-
-        verify(usageService, times(1)).refundUsage(USER);
-    }
-
-    @Test
-    @WithMockUser(username = USER)
-    void 성공하면_200을_응답하고_환불하지_않는다() throws Exception {
-        given(apiService.getResponseEX(any())).willReturn(WordResponseDTO.builder().build());
-        given(wordService.createWord(any(), eq(USER))).willReturn(WordResponseDTO.builder().word("apple").build());
+    void 올바른_요청이면_200과_검색_결과를_응답하고_사용자명_키_body를_넘긴다() throws Exception {
+        given(searchService.search(USER, IDEM_KEY, VALID_REQUEST))
+                .willReturn(WordResponseDTO.builder().word("apple").build());
 
         검색_요청(VALID_BODY)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.word").value("apple"));
 
-        verify(apiService).getResponseEX(new WordSearchRequestDTO("apple", "en", null, null));
-        verify(usageService, never()).refundUsage(anyString());
+        verify(searchService).search(USER, IDEM_KEY, VALID_REQUEST);
     }
 
     @Test
     @WithMockUser(username = USER)
-    void 사용량_차감이_AI호출보다_먼저_일어난다() throws Exception {
-        given(apiService.getResponseEX(any())).willReturn(WordResponseDTO.builder().build());
+    void 대문자_UUID는_소문자로_바꿔서_넘긴다() throws Exception {
+        mockMvc.perform(요청(VALID_BODY).header("Idempotency-Key", IDEM_KEY.toUpperCase()))
+                .andExpect(status().isOk());
 
-        검색_요청(VALID_BODY);
-
-        InOrder order = inOrder(usageService, apiService, wordService);
-        order.verify(usageService).decreaseUsage(USER);
-        order.verify(apiService).getResponseEX(any());
-        order.verify(wordService).createWord(any(), eq(USER));
+        verify(searchService).search(USER, IDEM_KEY, VALID_REQUEST);
     }
 
-    // ===== 입력 검증: 실패하면 차감도 일어나지 않아야 한다 =====
+    // ===== 멱등성 키 헤더 검증 =====
 
-    private void 아무것도_호출되지_않았다() {
-        verify(usageService, never()).decreaseUsage(anyString());
-        verify(apiService, never()).getResponseEX(any());
-        verify(wordService, never()).createWord(any(), anyString());
+    @Test
+    @WithMockUser(username = USER)
+    void 멱등성_키_헤더가_없으면_400과_헤더_이름을_응답한다() throws Exception {
+        mockMvc.perform(요청(VALID_BODY))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
+                .andExpect(jsonPath("$.message").value(containsString("Idempotency-Key")));
+
+        서비스가_호출되지_않았다();
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "",                                          // 빈 값
+            "abc",                                       // UUID 아님
+            "3f2b8c1e9a4d4e6f8b2a1c3d5e7f9a0b",          // 하이픈 없음
+            "3f2b8c1e-9a4d-4e6f-8b2a-1c3d5e7f9a0b0",     // 한 글자 더 김
+            "3f2b8c1e-9a4d-4e6f-8b2a-1c3d5e7f9a0g",      // hex 아닌 문자
+            "3f2b8c1e-9a4d-4e6f-8b2a:1c3d5e7f9a0b",      // Redis 키 구분자 ':' 포함
+    })
+    @WithMockUser(username = USER)
+    void 멱등성_키가_UUID_형식이_아니면_400을_응답한다(String invalidKey) throws Exception {
+        mockMvc.perform(요청(VALID_BODY).header("Idempotency-Key", invalidKey))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
+
+        서비스가_호출되지_않았다();
+    }
+
+    // ===== 서비스 예외 → 상태 코드 매핑 =====
+
+    static Stream<Arguments> 서비스_예외와_응답() {
+        return Stream.of(
+                Arguments.of(new RequestInProgressException(), ErrorCode.REQUEST_IN_PROGRESS),
+                Arguments.of(new UsageExhaustedException(), ErrorCode.USAGE_EXHAUSTED),
+                Arguments.of(new TemporarilyUnavailableException(new RuntimeException("Redis 장애")), ErrorCode.TEMPORARILY_UNAVAILABLE)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("서비스_예외와_응답")
+    @WithMockUser(username = USER)
+    void 서비스_예외는_ErrorCode의_상태와_코드로_응답한다(RuntimeException ex, ErrorCode errorCode) throws Exception {
+        given(searchService.search(USER, IDEM_KEY, VALID_REQUEST)).willThrow(ex);
+
+        검색_요청(VALID_BODY)
+                .andExpect(status().is(errorCode.getHttpStatus().value()))
+                .andExpect(jsonPath("$.code").value(errorCode.name()));
+    }
+
+    // ===== body 검증: 실패하면 서비스가 호출되지 않아야 한다 =====
 
     @Test
     @WithMockUser(username = USER)
@@ -150,7 +158,7 @@ class SearchControllerTest {
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
                 .andExpect(jsonPath("$.message").value(containsString("keyword")));
 
-        아무것도_호출되지_않았다();
+        서비스가_호출되지_않았다();
     }
 
     @Test
@@ -163,7 +171,7 @@ class SearchControllerTest {
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
                 .andExpect(jsonPath("$.message").value(containsString("keyword")));
 
-        아무것도_호출되지_않았다();
+        서비스가_호출되지_않았다();
     }
 
     @Test
@@ -176,7 +184,7 @@ class SearchControllerTest {
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT"))
                 .andExpect(jsonPath("$.message").value(containsString("lang")));
 
-        아무것도_호출되지_않았다();
+        서비스가_호출되지_않았다();
     }
 
     @Test
@@ -186,6 +194,6 @@ class SearchControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("INVALID_INPUT"));
 
-        아무것도_호출되지_않았다();
+        서비스가_호출되지_않았다();
     }
 }

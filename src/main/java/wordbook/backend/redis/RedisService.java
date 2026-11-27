@@ -87,12 +87,10 @@ public class RedisService {
     }
     
     
-    //rua script 실행
+    //lua script 실행
     @Transactional
     public long getUsage(String usageKey) {
-
-
-        // 2. 루아 스크립트 실행 (원자적 연산)
+        // 루아 스크립트 실행 (원자적 연산)
         Long result = stringRedisTemplate.execute(
                 GET_API_SCRIPT,
                 Arrays.asList(usageKey, API_USAGE),
@@ -104,22 +102,24 @@ public class RedisService {
     }
 
     //멱등성 키 등록하기
-    public IdempotencyResult tryStart(String key){
-        Boolean b = stringRedisTemplate.opsForValue().setIfAbsent(key, IDEMPOTENCY_IN_PROGRESS, IDEMPOTENCY_IN_PROGRESS_TTL);
-        if (Boolean.TRUE.equals(b)) {
+    public IdempotencyResult tryStart(String key) {
+        Boolean acquired = stringRedisTemplate.opsForValue()
+                .setIfAbsent(key, IDEMPOTENCY_IN_PROGRESS, IDEMPOTENCY_IN_PROGRESS_TTL);
+        if (Boolean.TRUE.equals(acquired)) {
             return IdempotencyResult.started();
         }
-        String value=stringRedisTemplate.opsForValue().get(key);
-        if(value!=null&&value.startsWith(IDEMPOTENCY_DONE_PREFIX)){
-            return IdempotencyResult.done(value.substring(5));
+        String value = stringRedisTemplate.opsForValue().get(key);
+        if (value != null && value.startsWith(IDEMPOTENCY_DONE_PREFIX)) {
+            return IdempotencyResult.done(value.substring(IDEMPOTENCY_DONE_PREFIX.length()));
         }
         return IdempotencyResult.inProgress();
     }
 
-    public void markIdempotencyDone(String key, String responseJson){
-        stringRedisTemplate.opsForValue().set(key,IDEMPOTENCY_DONE_PREFIX+responseJson,IDEMPOTENCY_DONE_TTL);
+    public void markIdempotencyDone(String key, String responseJson) {
+        stringRedisTemplate.opsForValue().set(key, IDEMPOTENCY_DONE_PREFIX + responseJson, IDEMPOTENCY_DONE_TTL);
     }
-    public void releaseIdempotency(String key){
-            stringRedisTemplate.delete(key);
+
+    public void releaseIdempotency(String key) {
+        stringRedisTemplate.delete(key);
     }
 }

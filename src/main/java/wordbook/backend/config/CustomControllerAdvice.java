@@ -14,7 +14,6 @@ import wordbook.backend.error.ErrorCode;
 
 import java.util.stream.Collectors;
 
-
 @RestControllerAdvice
 @Slf4j
 public class CustomControllerAdvice {
@@ -53,14 +52,13 @@ public class CustomControllerAdvice {
         } else {
             log.warn("API 에러 code={}", errorCode.name());                  // 클라이언트 쪽 원인, 한 줄이면 충분
         }
-
         return ResponseEntity
                 .status(errorCode.getHttpStatus())
                 .body(new ErrorBody(errorCode.name(), errorCode.getMessage()));
     }
     @ExceptionHandler(MissingRequestHeaderException.class)
-    public ResponseEntity<ErrorBody> handlerMissingHeaderException(MissingRequestHeaderException ex){
-        String detail=ex.getHeaderName()+" 헤더가 필요합니다.";
+    public ResponseEntity<ErrorBody> handleMissingHeaderException(MissingRequestHeaderException ex) {
+        String detail = ex.getHeaderName() + " 헤더가 필요합니다.";
         log.warn("필수 헤더 누락: {}", ex.getHeaderName());
         return ResponseEntity
                 .status(ErrorCode.INVALID_INPUT.getHttpStatus())
